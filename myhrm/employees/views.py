@@ -32,6 +32,61 @@ def log_activity(user, action, module, request=None, details=""):
         details=details
     )
 
+import base64
+import time
+from django.core.files.base import ContentFile
+
+def save_and_sync_employee_photo(employee, photo_file=None, photo_b64=None):
+    """
+    Saves photo to Django Employee model (supports file or base64 data url)
+    and syncs directly to Face Attendance user folder for immediate ArcFace matching.
+    """
+    saved_bytes = None
+    
+    if photo_b64 and len(photo_b64.strip()) > 50:
+        b64_str = photo_b64.strip()
+        if "," in b64_str:
+            b64_str = b64_str.split(",")[1]
+        try:
+            saved_bytes = base64.b64decode(b64_str)
+            filename = f"photo_{employee.user.username}_{int(time.time())}.jpg"
+            employee.photo.save(filename, ContentFile(saved_bytes), save=True)
+        except Exception as e:
+            print(f"[Photo Save Error] {e}")
+    elif photo_file:
+        employee.photo = photo_file
+        employee.save()
+        try:
+            employee.photo.open('rb')
+            saved_bytes = employee.photo.read()
+            employee.photo.close()
+        except Exception as e:
+            print(f"[Photo Read Error] {e}")
+            
+    # Sync to Face Attendance folder
+    if saved_bytes:
+        try:
+            full_name = f"{employee.user.first_name} {employee.user.last_name}".strip() or employee.user.username
+            face_root = os.path.abspath(os.path.join(settings.BASE_DIR, '..', 'face'))
+            users_dir = os.path.join(face_root, 'users')
+            if os.path.exists(face_root):
+                user_folder = os.path.join(users_dir, full_name)
+                os.makedirs(user_folder, exist_ok=True)
+                target_img = os.path.join(user_folder, 'profile.jpg')
+                with open(target_img, 'wb') as f:
+                    f.write(saved_bytes)
+                # Invalidate DeepFace representations cache so new face is indexed immediately
+                for fname in os.listdir(users_dir):
+                    if fname.endswith('.pkl'):
+                        try:
+                            os.remove(os.path.join(users_dir, fname))
+                        except Exception:
+                            pass
+                print(f"[Face Direct Sync] Updated profile photo for '{full_name}' at {target_img}")
+        except Exception as e:
+            print(f"[Face Direct Sync Notice] Could not sync photo directly to Face app: {e}")
+
+
 def get_unified_calendar_events(user=None, employee=None):
     events = []
     
@@ -811,10 +866,15 @@ def add_employee(request):
                 emp_kwargs['address'] = address
             if employee_id_code:
                 emp_kwargs['employee_id_code'] = employee_id_code
-            if request.FILES.get('photo'):
-                emp_kwargs['photo'] = request.FILES.get('photo')
 
-            Employee.objects.create(**emp_kwargs)
+            new_emp = Employee.objects.create(**emp_kwargs)
+            
+            # Save photo from file or camera capture
+            photo_file = request.FILES.get('photo')
+            photo_b64 = request.POST.get('photo_b64')
+            if photo_file or photo_b64:
+                save_and_sync_employee_photo(new_emp, photo_file=photo_file, photo_b64=photo_b64)
+
             log_activity(request.user, f'Created Employee {first_name} {last_name}', 'Employee Management', request)
             messages.success(request, f"Employee {first_name} {last_name} created successfully!")
             
@@ -1758,10 +1818,14 @@ def edit_employee(request, employee_id):
         if request.POST.get('grace_period_minutes'):
             employee.grace_period_minutes = int(request.POST.get('grace_period_minutes'))
             
-        if request.FILES.get('photo'):
-            employee.photo = request.FILES.get('photo')
-            
         employee.save()
+        
+        # Save photo from file or camera capture
+        photo_file = request.FILES.get('photo')
+        photo_b64 = request.POST.get('photo_b64')
+        if photo_file or photo_b64:
+            save_and_sync_employee_photo(employee, photo_file=photo_file, photo_b64=photo_b64)
+
         Notification.objects.create(user=user, title="Profile Updated", message="Your employee profile and/or settings have been updated by the administrator.")
         messages.success(request, f"Employee {user.first_name} {user.last_name} updated successfully!")
     return redirect('admin_dashboard')
