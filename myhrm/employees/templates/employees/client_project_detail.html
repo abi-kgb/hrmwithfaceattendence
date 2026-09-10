@@ -1,0 +1,342 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Project Details | {{ project.name }} | Client Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        
+        
+
+       
+        :root {
+            --bg: #f8fafc;
+            --bg-secondary: #f1f5f9;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --border: rgba(15, 23, 42, 0.08);
+            --border-hover: rgba(15, 23, 42, 0.15);
+            
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --accent: #3b82f6;
+            
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+        }
+body { background: #f0f4ff; min-height: 100vh; color: var(--text-main); padding-top: 64px; }
+
+        /* NAVBAR */
+        .navbar {
+            background: var(--card-bg);
+            padding: 0 2rem;
+            height: 64px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+        }
+        /* MOBILE: small top space to clear phone status bar only */
+        @media (max-width: 768px) {
+            body { padding-top: 120px !important; }
+            .navbar { padding: 60px 1rem 0 1rem !important; height: 120px !important; }
+        }
+        .navbar-brand { font-size: 2rem; font-weight: 900; color: var(--text-main); display: flex; align-items: center; gap: 0.6rem; text-decoration: none; }
+        .navbar-brand span { background: linear-gradient(135deg,var(--primary),var(--primary-hover)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .user-badge { display: flex; align-items: center; gap: 0.75rem; }
+        .avatar { width: 38px; height: 38px; background: linear-gradient(135deg,var(--primary),var(--primary-hover)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--card-bg); font-weight: 900; font-size: 0.85rem; }
+        .user-name { font-weight: 700; font-size: 0.9rem; }
+        .user-role { font-size: 0.72rem; color: var(--text-muted); }
+        .btn-logout { background: var(--bg-secondary); border: none; padding: 0.45rem 1rem; border-radius: 0.5rem; font-size: 0.82rem; font-weight: 700; cursor: pointer; color: var(--text-muted); text-decoration: none; transition: all 0.2s; }
+        .btn-logout:hover { background: #fee2e2; color: #dc2626; }
+
+        /* MAIN */
+        .main { max-width: 1300px; margin: 1.5rem auto 2rem auto; padding: 1rem 2rem 0 2rem; }
+
+        /* CARDS */
+        .card {
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 1.1rem;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden; margin-bottom: 1.5rem;
+        }
+        .card-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--bg-secondary); background: var(--card-bg); display: flex; justify-content: space-between; align-items: center; position: relative; }
+        .card-header::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--primary), var(--primary-hover), var(--primary), transparent); }
+        .card-title { font-size: 1rem; font-weight: 800; color: var(--text-main); }
+        .card-body { padding: 1.5rem; }
+
+        /* BADGES */
+        .badge { font-size: 0.68rem; font-weight: 800; padding: 0.25rem 0.6rem; border-radius: 9999px; display: inline-flex; align-items: center; }
+        .badge-active   { background: #eff6ff; color: var(--primary); border: 1px solid #bfdbfe; }
+        .badge-completed { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+        .badge-on-hold  { background: var(--card-bg)beb; color: #92400e; border: 1px solid #fde68a; }
+
+        /* PROGRESS BAR */
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .progress-wrap { height: 10px; background: var(--bg-secondary); border-radius: 9999px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 9999px; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+
+        /* BUTTONS */
+        .btn-submit {
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: var(--card-bg); border: none; padding: 0.7rem 1.75rem; border-radius: 0.65rem;
+            font-weight: 800; cursor: pointer; font-size: 0.88rem; transition: all 0.25s;
+            box-shadow: 0 4px 16px rgba(0,85,255,0.25); text-decoration: none; display: inline-block;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+        .btn-back {
+            color: var(--primary); font-weight: 700; text-decoration: none; font-size: 0.9rem;
+            display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;
+        }
+
+        /* DISCUSSION */
+        .discussion-feed {
+            display: flex; flex-direction: column; gap: 1.15rem; max-height: 480px;
+            overflow-y: auto; padding-right: 0.5rem; border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
+        }
+        .message-wrap { display: flex; flex-direction: column; }
+        .message-bubble {
+            max-width: 85%; border-radius: 1rem; padding: 0.85rem 1.15rem; font-size: 0.88rem; line-height: 1.45;
+        }
+        .message-bubble.admin {
+            background: var(--bg-secondary); color: var(--text-main); border: 1.5px solid var(--border); border-bottom-left-radius: 0.25rem; align-self: flex-start;
+        }
+        .message-bubble.client {
+            background: linear-gradient(135deg, var(--primary), #3377ff); color: var(--card-bg); border-bottom-right-radius: 0.25rem; align-self: flex-end;
+        }
+        .meta-text {
+            font-weight: 800; font-size: 0.75rem; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;
+        }
+        .meta-text.admin { color: var(--text-muted); }
+        .meta-text.client { color: rgba(255,255,255,0.85); }
+
+        textarea {
+            width: 100%; padding: 0.75rem 1rem; border: 1.5px solid var(--border); border-radius: 0.65rem;
+            font-size: 0.9rem; min-height: 100px; margin-bottom: 0.75rem; transition: border 0.25s;
+        }
+        textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(0,85,255,0.15); }
+    
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 0.95rem !important;
+                white-space: nowrap !important;
+            }
+            .user-badge {
+                gap: 0.35rem !important;
+            }
+            .user-name, .user-role {
+                display: none !important;
+            }
+            .btn-logout {
+                padding: 0.3rem 0.5rem !important;
+                font-size: 0.72rem !important;
+                white-space: nowrap !important;
+            }
+            .avatar {
+                width: 30px !important;
+                height: 30px !important;
+                font-size: 0.75rem !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Pull To Refresh UI Indicator -->
+    <div id="pullToRefreshIndicator" style="position: fixed; top: -60px; left: 50%; transform: translateX(-50%); z-index: 9999; background: var(--card-bg, #ffffff); border: 1px solid var(--border, #e2e8f0); border-radius: 9999px; padding: 0.5rem 1rem; box-shadow: 0 4px 14px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 0.5rem; transition: top 0.2s ease, transform 0.2s ease; pointer-events: none;">
+        <div id="ptrSpinner" style="width: 18px; height: 18px; border: 2.5px solid #cbd5e1; border-top-color: var(--primary, #2563eb); border-radius: 50%; transition: transform 0.1s linear;"></div>
+        <span id="ptrText" style="font-size: 0.8rem; font-weight: 600; color: var(--text-main, #0f172a);">Pull to refresh</span>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <a href="{% url 'client_dashboard' %}" class="navbar-brand">Creative<span>Tech</span> HRM</a>
+        <div class="user-badge">
+            <div class="avatar">{{ client.contact_person|first|upper }}</div>
+            <div>
+                <div class="user-name">{{ client.company_name }}</div>
+                <div class="user-role">Client Portal</div>
+            </div>
+            <button onclick="window.location.href = window.location.pathname;" class="btn-logout" style="display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(37,99,235,0.08); color: var(--primary); font-weight:700; margin-left: 0.5rem;" title="Refresh Page">
+                ↻ Refresh
+            </button>
+                        <div style="position: relative; cursor: pointer; color: var(--text-muted); transition: color 0.2s; margin-right: 0.5rem; display: flex; align-items: center;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                {% if admin_notifications_count > 0 %}
+                <span style="position: absolute; top: -5px; right: -5px; background: var(--danger, #ef4444); color: white; font-size: 0.65rem; font-weight: bold; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid var(--card-bg, #fff);">
+                    {{ admin_notifications_count }}
+                </span>
+                {% endif %}
+            </div>
+            <a href="{% url 'logout' %}" class="btn-logout">Sign Out</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main">
+        
+        <a href="{% url 'client_dashboard' %}" class="btn-back">
+            ⬅ Back to Dashboard
+        </a>
+
+        {% if messages %}
+        {% for message in messages %}
+        <div style="padding:0.85rem 1.25rem;border-radius:0.75rem;margin-bottom:1rem;background:#ecfdf5;color:#065f46;border-left:4px solid var(--success);font-size:0.85rem;font-weight:500;">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+
+        <div class="responsive-grid-detail">
+            
+            <!-- Project Details Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">🚀 Project Overview</h2>
+                </div>
+                <div class="card-body">
+                    <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 0.5rem;">{{ project.name }}</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 1.25rem;">
+                        {{ project.description|default:"No description available." }}
+                    </p>
+
+                    <div style="border-top: 1px solid var(--border); padding-top: 1rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted); font-weight: 600;">Deadline:</span>
+                            <strong style="color: var(--text-main);">{{ project.deadline|default:"No deadline set" }}</strong>
+                        </div>
+                    </div>
+
+                    <!-- Progress Wrap -->
+                    <div style="background:var(--bg); border:1px solid var(--border); border-radius:0.75rem; padding:0.85rem 1rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; font-size:0.82rem;">
+                            <span style="color:var(--text-muted); font-weight:700;">Status</span>
+                            <span class="badge badge-{{ project.status|slugify }}">{{ project.status }}</span>
+                        </div>
+                        <div class="progress-label">
+                            <span style="color:var(--text-muted);">Progress</span>
+                            <span style="color:{% if project.progress >= 100 %}var(--success){% elif project.progress >= 60 %}var(--primary){% else %}var(--warning){% endif %};">{{ project.progress }}%</span>
+                        </div>
+                        <div class="progress-wrap">
+                            <div class="progress-fill" style="width:{{ project.progress }}%;background:{% if project.progress >= 100 %}linear-gradient(90deg,var(--success),#34d399){% elif project.progress >= 60 %}linear-gradient(90deg,var(--primary),var(--primary-hover)){% else %}linear-gradient(90deg,var(--warning),#fb923c){% endif %};"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Discussion Thread Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">💬 Project Discussion &amp; Updates</h2>
+                </div>
+                <div class="card-body" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    
+                    <!-- Discussion Feed -->
+                    <div class="discussion-feed">
+                        {% for update in updates %}
+                        <div class="message-wrap" style="{% if update.is_admin %}align-items: flex-start;{% else %}align-items: flex-end;{% endif %}">
+                            <div class="message-bubble {% if update.is_admin %}admin{% else %}client{% endif %}">
+                                <div class="meta-text {% if update.is_admin %}admin{% else %}client{% endif %}">
+                                    <span>{% if update.is_admin %}⚡ Admin{% else %}🤝 You{% endif %}</span>
+                                    <span>&bull;</span>
+                                    <span>{{ update.created_at|date:"M d, Y H:i" }}</span>
+                                </div>
+                                <div style="white-space: pre-wrap;">{{ update.message }}</div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div style="text-align: center; color: var(--text-muted); padding: 4rem 2rem; font-size: 0.9rem;">
+                            📢 No updates or messages posted yet. Post a comment below to start the discussion!
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Post Comment Form -->
+                    <div>
+                        <h3 style="font-size: 0.95rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.75rem;">💬 Post Feedback / Message</h3>
+                        <form method="post">
+                            {% csrf_token %}
+                            <textarea name="message" placeholder="Provide inputs, feedback, or ask a question about the project status..." required></textarea>
+                            <button type="submit" class="btn-submit">Send Message</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+<script>
+    // Native Touch Pull-To-Refresh Gesture Handler for Mobile APK & Mobile Web
+    (function() {
+        let startY = 0;
+        let currentY = 0;
+        let pulling = false;
+        const threshold = 75;
+        const ptr = document.getElementById('pullToRefreshIndicator');
+        const spinner = document.getElementById('ptrSpinner');
+        const ptrText = document.getElementById('ptrText');
+
+        if (!ptr) return;
+
+        window.addEventListener('touchstart', function(e) {
+            if (window.scrollY <= 2 && e.touches.length === 1) {
+                startY = e.touches[0].pageY;
+                pulling = true;
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', function(e) {
+            if (!pulling) return;
+            currentY = e.touches[0].pageY;
+            const diff = currentY - startY;
+
+            if (diff > 10 && window.scrollY <= 2) {
+                const pullDistance = Math.min(diff * 0.45, 85);
+                ptr.style.top = (pullDistance - 50) + 'px';
+                const rotation = Math.min((diff / threshold) * 360, 360);
+                spinner.style.transform = 'rotate(' + rotation + 'deg)';
+
+                if (diff >= threshold) {
+                    ptrText.textContent = 'Release to refresh';
+                } else {
+                    ptrText.textContent = 'Pull to refresh';
+                }
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', function(e) {
+            if (!pulling) return;
+            const diff = currentY - startY;
+            pulling = false;
+
+            if (diff >= threshold && window.scrollY <= 2) {
+                ptr.style.top = '16px';
+                ptrText.textContent = 'Refreshing...';
+                spinner.style.animation = 'ptrSpin 0.8s linear infinite';
+                setTimeout(function() {
+                    window.location.reload();
+                }, 250);
+            } else {
+                ptr.style.top = '-60px';
+            }
+            startY = 0;
+            currentY = 0;
+        }, { passive: true });
+    })();
+</script>
+</body>
+</html>

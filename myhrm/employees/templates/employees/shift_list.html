@@ -1,0 +1,45 @@
+{% extends 'employees/admin_base.html' %}
+{% block nav_shifts %}active{% endblock %}
+{% block admin_content %}
+<div style="padding: 0.5rem 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+        <h1 style="color: var(--text-primary); font-size: 1.4rem; font-weight: 600;">Shift Management</h1>
+        <a href="{% url 'add_shift' %}" class="btn-action" style="background: var(--primary); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 500;">+ Add Shift</a>
+    </div>
+
+    <div style="background: var(--bg-card); border-radius: 1rem; box-shadow: var(--shadow-sm); overflow: hidden;">
+        <div class="table-container">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="background: var(--bg-body); border-bottom: 1px solid var(--border-color);">
+                    <th style="padding: 1rem; color: var(--text-secondary); font-weight: 500;">Name</th>
+                    <th style="padding: 1rem; color: var(--text-secondary); font-weight: 500;">Start Time</th>
+                    <th style="padding: 1rem; color: var(--text-secondary); font-weight: 500;">End Time</th>
+                    <th style="padding: 1rem; color: var(--text-secondary); font-weight: 500; text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for shift in shifts %}
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 1rem; font-weight: 500; color: var(--text-primary);">{{ shift.name }}</td>
+                    <td style="padding: 1rem; color: var(--text-secondary);">{{ shift.start_time|time:"H:i" }}</td>
+                    <td style="padding: 1rem; color: var(--text-secondary);">{{ shift.end_time|time:"H:i" }}</td>
+                    <td style="padding: 1rem; text-align: right; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                        <a href="{% url 'edit_shift' shift.id %}" style="color: var(--primary); text-decoration: none; padding: 0.25rem 0.5rem; border-radius: 0.25rem; background: rgba(37, 99, 235, 0.1);">Edit</a>
+                        <form method="POST" action="{% url 'delete_shift' shift.id %}" onsubmit="return confirm('Are you sure you want to delete this shift?');" style="margin: 0;">
+                            {% csrf_token %}
+                            <button type="submit" style="color: var(--danger); background: rgba(239, 68, 68, 0.1); border: none; padding: 0.25rem 0.5rem; border-radius: 0.25rem; cursor: pointer;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="padding: 2rem; text-align: center; color: var(--text-secondary);">No shifts configured yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends 'employees/admin_base.html' %}
+{% block title %}Goal Tracking | Creative Tech HRM{% endblock %}
+{% block page_title %}Goal Tracking{% endblock %}
+{% block page_subtitle %}Set, track, and achieve company and team goals.{% endblock %}
+{% block nav_goals %}active{% endblock %}
+
+{% block admin_extra_head %}
+<style>
+    /* Modal Backdrop */
+    .modal-backdrop {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    /* Modal Container */
+    .modal-content-wrap {
+        padding: 2rem;
+        background: var(--card-bg);
+        border-radius: 1.25rem;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+    
+    
+</style>
+{% endblock %}
+
+{% block admin_content %}
+<div>
+
+    <!-- Goals Table -->
+    <div class="card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 class="card-title">🎯 Active Goals ({{ goals|length }})</h2>
+            <button onclick="openAddGoalModal()" class="btn-submit" style="padding:0.45rem 1rem; font-size:0.82rem; display:flex; align-items:center; gap:0.4rem;">
+                ➕ Add Goal
+            </button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="padding:0.75rem 1rem;">#</th>
+                        <th style="padding:0.75rem 1rem;">Subject</th>
+                        <th style="padding:0.75rem 1rem;">Project</th>
+                        <th style="padding:0.75rem 1rem;">Start</th>
+                        <th style="padding:0.75rem 1rem;">End</th>
+                        <th style="padding:0.75rem 1rem;">Status</th>
+                        <th style="padding:0.75rem 1rem;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for goal in goals %}
+                    <tr>
+                        <td style="padding:0.75rem 1rem; color:var(--text-muted);font-weight:700; vertical-align:middle;">{{ forloop.counter }}</td>
+                        <td style="padding:0.75rem 1rem; vertical-align:middle;">
+                            <div style="font-weight:700;">{{ goal.subject }}</div>
+                            {% if goal.description %}<div style="font-size:0.75rem;color:var(--text-muted);">{{ goal.description|truncatechars:40 }}</div>{% endif %}
+                        </td>
+                        <td style="padding:0.75rem 1rem; font-weight:700; vertical-align:middle;">{{ goal.project.name|default:'-' }}</td>
+                        <td style="padding:0.75rem 1rem; color:var(--text-muted);font-size:0.85rem; vertical-align:middle;">{{ goal.start_date }}</td>
+                        <td style="padding:0.75rem 1rem; color:var(--text-muted);font-size:0.85rem; vertical-align:middle;">{{ goal.end_date }}</td>
+                        <td style="padding:0.75rem 1rem; vertical-align:middle;">
+                            <form method="POST" action="{% url 'update_goal_status' goal.id %}" style="display:inline; margin:0;">
+                                {% csrf_token %}
+                                <select name="status" onchange="this.form.submit()"
+                                        style="padding:0.35rem 0.75rem; font-size:0.78rem; border-radius:9999px; font-weight:700; cursor:pointer; outline:none; font-family:inherit; border:1px solid rgba(0,0,0,0.1); min-width:95px; text-align:center;
+                                               {% if goal.status == 'Completed' %}background:#d1fae5; color:#065f46;{% elif goal.status == 'Pending' %}background:#fef3c7; color:#92400e;{% else %}background:#dbeafe; color:#1e40af;{% endif %}">
+                                    <option value="Active" {% if goal.status == 'Active' %}selected{% endif %}>Active</option>
+                                    <option value="Pending" {% if goal.status == 'Pending' %}selected{% endif %}>Pending</option>
+                                    <option value="Completed" {% if goal.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                </select>
+                            </form>
+                        </td>
+                        <td style="padding:0.75rem 1rem; vertical-align:middle;">
+                            <form method="POST" action="{% url 'delete_goal' goal.id %}" style="display:inline; margin:0;" onsubmit="return confirm('Delete this goal?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-reject" title="Delete Goal"
+                                    style="padding:0 0.55rem; font-size:0.75rem; border:none; cursor:pointer; background:#ef4444; color:white; border-radius:0.35rem; display:inline-flex; align-items:center; justify-content:center; height:28px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:3rem;">No goals added yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Goal Modal -->
+<div id="addGoalModal" class="modal-backdrop" onclick="closeAddGoalModal()">
+    <div class="modal-content-wrap" onclick="event.stopPropagation()">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 class="card-title">➕ Add Goal</h2>
+            <button onclick="closeAddGoalModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted); font-weight:bold;">&times;</button>
+        </div>
+        <div class="card-body" style="max-height:80vh; overflow-y:auto; padding-top:0.5rem; padding-bottom:1.5rem;">
+            <form method="post" class="admin-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Project</label>
+                    <select name="project_id" style="width:100%; padding:0.6rem; border:1.5px solid var(--border); border-radius:0.4rem;">
+                        <option value="">-- No Project --</option>
+                        {% for p in projects %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subject</label>
+                    <input type="text" name="subject" placeholder="Increase quarterly sales by 20%" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" name="start_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" name="end_date" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="3" placeholder="Goal details..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="Active">Active</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit" style="width:100%;margin-top:0.5rem;">Add Goal</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openAddGoalModal() {
+        document.getElementById('addGoalModal').style.display = 'flex';
+    }
+    function closeAddGoalModal() {
+        document.getElementById('addGoalModal').style.display = 'none';
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'employees/admin_base.html' %}
+{% block nav_shifts %}active{% endblock %}
+{% block admin_content %}
+<div style="padding: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1 style="color: var(--text-primary); font-size: 1.5rem; font-weight: 600;">{% if shift %}Edit Shift{% else %}Add Shift{% endif %}</h1>
+        <a href="{% url 'shift_list' %}" style="color: var(--text-secondary); text-decoration: none; font-weight: 500;">&larr; Back to Shifts</a>
+    </div>
+
+    <div style="background: var(--bg-card); border-radius: 1rem; box-shadow: var(--shadow-sm); padding: 2rem; max-width: 600px;">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Shift Name</label>
+                <input type="text" name="name" value="{{ shift.name }}" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--bg-body); color: var(--text-primary); font-family: inherit;">
+            </div>
+
+            <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem;">
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Start Time</label>
+                    <input type="time" name="start_time" value="{{ shift.start_time|time:'H:i' }}" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--bg-body); color: var(--text-primary); font-family: inherit;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">End Time</label>
+                    <input type="time" name="end_time" value="{{ shift.end_time|time:'H:i' }}" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background: var(--bg-body); color: var(--text-primary); font-family: inherit;">
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+                <a href="{% url 'shift_list' %}" style="padding: 0.75rem 1.5rem; color: var(--text-secondary); text-decoration: none; font-weight: 500;">Cancel</a>
+                <button type="submit" class="btn-action" style="background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; font-family: inherit;">
+                    {% if shift %}Save Changes{% else %}Add Shift{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

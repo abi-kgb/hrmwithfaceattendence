@@ -1,0 +1,140 @@
+{% extends 'employees/admin_base.html' %}
+{% block title %}Generate HR Letter | CreativeTech HRM{% endblock %}
+{% block page_title %}Generate HR Certificate / Letter{% endblock %}
+{% block page_subtitle %}Issue official company documents and certificates to employees.{% endblock %}
+
+{% block admin_content %}
+<div class="responsive-grid-detail">
+    <!-- Form Controls -->
+    <div class="card" style="padding: 1.5rem; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border);">
+        <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem;">📄 Letter Details</h2>
+        <form method="POST" id="letterForm">
+            {% csrf_token %}
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">Select Employee *</label>
+                <select name="employee_id" id="employeeSelect" required style="width: 100%; padding: 0.7rem; border: 1.5px solid var(--border); border-radius: 8px;" onchange="updatePreview()">
+                    <option value="">-- Choose Employee --</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}" 
+                            data-name="{{ emp.user.first_name }} {{ emp.user.last_name }}"
+                            data-empid="{{ emp.employee_id|default:emp.id }}"
+                            data-dept="{{ emp.department.name|default:'General' }}"
+                            data-desig="{{ emp.designation.name|default:'Team Member' }}"
+                            data-joining="{{ emp.date_of_joining|date:'M d, Y'|default:'2025-01-01' }}"
+                            data-salary="{{ emp.salary|default:'50000' }}">
+                        {{ emp.user.first_name }} {{ emp.user.last_name }} ({{ emp.department.name|default:'Staff' }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">Document Type *</label>
+                <select name="letter_type" id="letterTypeSelect" required style="width: 100%; padding: 0.7rem; border: 1.5px solid var(--border); border-radius: 8px;" onchange="updatePreview()">
+                    <option value="Experience Certificate">Experience Certificate</option>
+                    <option value="Offer Letter">Offer Letter</option>
+                    <option value="Relieving Letter">Relieving Letter</option>
+                    <option value="NOC Certificate">NOC Certificate</option>
+                    <option value="Custom Letter">Custom Letter</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">Document Title</label>
+                <input type="text" name="title" id="letterTitle" placeholder="e.g. Experience Certificate" style="width: 100%; padding: 0.7rem; border: 1.5px solid var(--border); border-radius: 8px;">
+            </div>
+
+            <div class="responsive-grid-half" style="margin-bottom: 1.25rem;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">Signatory Name</label>
+                    <input type="text" name="signatory_name" value="HR Operations" style="width: 100%; padding: 0.65rem; border: 1.5px solid var(--border); border-radius: 8px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">Signatory Title</label>
+                    <input type="text" name="signatory_title" value="Head of People Ops" style="width: 100%; padding: 0.65rem; border: 1.5px solid var(--border); border-radius: 8px;">
+                </div>
+            </div>
+
+            <textarea name="content" id="hiddenContent" style="display: none;"></textarea>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; border-radius: 8px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <span>✨</span> Generate & Issue Document
+            </button>
+        </form>
+    </div>
+
+    <!-- Live Preview Box -->
+    <div class="card" style="padding: 2.5rem; background: #ffffff; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); min-height: 500px;">
+        <div style="border-bottom: 2px solid #2563eb; padding-bottom: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 style="font-size: 1.5rem; font-weight: 900; color: #1e293b; margin: 0; letter-spacing: -0.02em;">CREATIVETECH<span style="color: #2563eb;">SOLUTIONS</span></h1>
+                <p style="font-size: 0.75rem; color: #64748b; margin: 0.2rem 0 0 0;">Official Corporate Letterhead & Document System</p>
+            </div>
+            <div style="text-align: right; font-size: 0.75rem; color: #64748b;">
+                <div><strong>PREVIEW MODE</strong></div>
+                <div>Date: {% now "M d, Y" %}</div>
+            </div>
+        </div>
+
+        <div id="editableContent" contenteditable="true" style="min-height: 280px; font-size: 0.95rem; line-height: 1.7; color: #334155; padding: 1rem; border: 1px dashed #cbd5e1; border-radius: 8px; outline: none;" oninput="syncContent()">
+            <p style="color: #94a3b8; text-align: center; margin-top: 4rem;">Select an employee and document type on the left to auto-fill this letter template.</p>
+        </div>
+
+        <div style="margin-top: 3rem; display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+            <div>
+                <div style="font-weight: 700; color: #0f172a; font-size: 0.9rem;" id="signatoryNamePreview">HR Operations</div>
+                <div style="font-size: 0.8rem; color: #64748b;" id="signatoryTitlePreview">Head of People Ops</div>
+                <div style="font-size: 0.75rem; color: #2563eb; font-weight: 600; margin-top: 0.25rem;">CreativeTech Solutions Inc.</div>
+            </div>
+            <div style="width: 80px; height: 80px; border-radius: 50%; border: 2px dashed #93c5fd; display: flex; align-items: center; justify-content: center; color: #3b82f6; font-size: 0.65rem; font-weight: bold; text-align: center; text-transform: uppercase;">
+                OFFICIAL<br>SEAL
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const templates = {{ templates_json|safe }};
+    
+    function updatePreview() {
+        const empSelect = document.getElementById('employeeSelect');
+        const typeSelect = document.getElementById('letterTypeSelect');
+        const selectedOpt = empSelect.options[empSelect.selectedIndex];
+        
+        if (!selectedOpt.value) return;
+        
+        const type = typeSelect.value;
+        const name = selectedOpt.dataset.name;
+        const empId = selectedOpt.dataset.empid;
+        const dept = selectedOpt.dataset.dept;
+        const desig = selectedOpt.dataset.desig;
+        const joining = selectedOpt.dataset.joining;
+        const salary = selectedOpt.dataset.salary;
+        const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+        document.getElementById('letterTitle').value = `${type} - ${name}`;
+
+        let templateText = templates[type] || "<p>Type custom document body text here...</p>";
+        templateText = templateText
+            .replace(/{employee_name}/g, name)
+            .replace(/{employee_id}/g, empId)
+            .replace(/{department}/g, dept)
+            .replace(/{designation}/g, desig)
+            .replace(/{joining_date}/g, joining)
+            .replace(/{salary}/g, salary)
+            .replace(/{today_date}/g, today);
+
+        const editor = document.getElementById('editableContent');
+        editor.innerHTML = templateText;
+        syncContent();
+    }
+
+    function syncContent() {
+        document.getElementById('hiddenContent').value = document.getElementById('editableContent').innerHTML;
+    }
+
+    document.getElementById('letterForm').addEventListener('submit', function() {
+        syncContent();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends 'employees/admin_base.html' %}
+{% block title %}Shift Requests{% endblock %}
+{% block nav_shift_requests %}active{% endblock %}
+
+{% block admin_content %}
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 class="card-title">Pending Shift Requests</h2>
+    </div>
+    
+    <div class="table-container">
+        {% if pending_requests %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Current Shift</th>
+                    <th>Requested Shift</th>
+                    <th>Reason</th>
+                    <th>Date Requested</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_requests %}
+                <tr>
+                    <td>
+                        <strong>{{ req.employee.user.first_name }} {{ req.employee.user.last_name }}</strong><br>
+                        <span style="font-size: 0.75rem; color:var(--text-muted);">{{ req.employee.role }}</span>
+                    </td>
+                    <td>
+                        {% if req.employee.shift %}
+                            {{ req.employee.shift.name }}<br>
+                            <span style="font-size: 0.75rem; color:var(--text-muted);">{{ req.employee.shift.start_time|time:"H:i" }} - {{ req.employee.shift.end_time|time:"H:i" }}</span>
+                        {% else %}
+                            <span style="color:var(--text-muted);">None</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ req.requested_shift.name }}</strong><br>
+                        <span style="font-size: 0.75rem; color:var(--text-muted);">{{ req.requested_shift.start_time|time:"H:i" }} - {{ req.requested_shift.end_time|time:"H:i" }}</span>
+                    </td>
+                    <td>{{ req.reason|truncatechars:30 }}</td>
+                    <td>{{ req.created_at|date:"M d, Y" }}</td>
+                    <td>
+                        <div style="display: flex; gap: 0.4rem;">
+                            <a href="{% url 'approve_shift_request' req.id %}" class="btn-approve">Approve</a>
+                            <a href="{% url 'reject_shift_request' req.id %}" class="btn-reject">Reject</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">
+            No pending shift requests.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Request History</h2>
+    </div>
+    <div class="table-container">
+        {% if history %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Requested Shift</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Date Requested</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in history %}
+                <tr>
+                    <td>{{ req.employee.user.first_name }} {{ req.employee.user.last_name }}</td>
+                    <td>{{ req.requested_shift.name }}</td>
+                    <td>{{ req.reason|truncatechars:30 }}</td>
+                    <td>
+                        <span class="status-badge status-{{ req.status|lower }}">{{ req.status }}</span>
+                    </td>
+                    <td>{{ req.created_at|date:"M d, Y" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">
+            No historical shift requests found.
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

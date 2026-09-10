@@ -1,0 +1,1847 @@
+{% extends 'employees/base.html' %}
+
+{% block extra_head %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+<style>
+    #calendar {
+        background: var(--card-bg);
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 2rem;
+    }
+    .fc-event {
+        cursor: pointer;
+        border: none;
+        padding: 0.15rem 0.25rem;
+        border-radius: 0.3rem;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+    .fc-toolbar-title {
+        font-weight: 800 !important;
+        font-size: 1.25rem !important;
+        color: var(--text-main);
+    }
+    .fc-button-primary {
+        background: var(--primary) !important;
+        border-color: var(--primary) !important;
+        border-radius: 0.4rem !important;
+        font-weight: 600 !important;
+    }
+
+    .dashboard-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .welcome-banner {
+        grid-column: 1 / -1;
+        background: linear-gradient(135deg, #eff6ff 0%, var(--bg-secondary) 50%, var(--bg) 100%);
+        background-size: 200% 200%;
+        color: var(--text-main);
+        padding: 2rem 2.5rem;
+        border-radius: 1rem;
+        box-shadow: var(--shadow-md), 0 0 0 1px rgba(0, 85, 255, 0.12);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .welcome-banner::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(0, 85, 255, 0.05) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+
+    
+
+    .welcome-text h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .welcome-text p {
+        color: var(--warning);
+        font-size: 0.95rem;
+    }
+
+    /* Leave Circular Progress Charts */
+    .leave-circular-container {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 400px));
+        gap: 1.5rem;
+        margin-bottom: 0.5rem;
+        justify-content: start;
+    }
+
+    @media (max-width: 640px) {
+        .leave-circular-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .leave-ring-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        box-shadow: var(--shadow-sm);
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .leave-ring-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .leave-ring-details {
+        text-align: left;
+    }
+
+    .leave-ring-title {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+
+    .leave-ring-val {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .leave-ring-sub {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+        display: block;
+    }
+
+    .svg-ring-container {
+        width: 80px;
+        height: 80px;
+        position: relative;
+    }
+
+    .svg-ring-chart {
+        width: 80px;
+        height: 80px;
+    }
+
+    .svg-ring-bg {
+        fill: none;
+        stroke: var(--bg-secondary);
+        stroke-width: 3.2;
+    }
+
+    .svg-ring-fill {
+        fill: none;
+        stroke-width: 3.2;
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+        transition: stroke-dashoffset 0.5s ease-in-out;
+    }
+
+    .sick-fill {
+        stroke: var(--danger);
+    }
+
+    .casual-fill {
+        stroke: #f59e0b;
+    }
+
+    .annual-fill {
+        stroke: var(--primary);
+    }
+
+    .svg-ring-text {
+        font-family: 'Inter', sans-serif;
+        font-size: 0.55rem;
+        font-weight: 700;
+        fill: var(--text-main);
+        text-anchor: middle;
+        dominant-baseline: middle;
+    }
+
+    /* Attendance & Clock Action Card */
+    .attendance-status {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem 0;
+        text-align: center;
+    }
+
+    .status-badge {
+        font-size: 1rem;
+        font-weight: 700;
+        padding: 0.5rem 1.25rem;
+        border-radius: 9999px;
+        margin-bottom: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .status-badge.missing {
+        background-color: var(--danger-bg);
+        color: var(--danger);
+    }
+
+    .status-badge.active {
+        background-color: var(--success-bg);
+        color: var(--success);
+    }
+
+    .status-badge.completed {
+        background-color: var(--bg-secondary);
+        color: var(--text-muted);
+    }
+
+    .btn-action {
+        width: 100%;
+        max-width: 220px;
+        padding: 0.85rem 1.5rem;
+        border: none;
+        border-radius: 0.625rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: white;
+        transition: background-color 0.2s, transform 0.1s;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .btn-clockin {
+        background-color: var(--success);
+    }
+
+    .btn-clockin:hover {
+        background-color: #059669;
+    }
+
+    .btn-clockout {
+        background-color: var(--warning);
+    }
+
+    .btn-clockout:hover {
+        background-color: #d97706;
+    }
+
+    .btn-action:active {
+        transform: scale(0.97);
+    }
+
+    /* Vertical Tabs Layout */
+    .dashboard-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.75rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    .tab-button {
+        background: transparent;
+        border: none;
+        border-left: 3px solid transparent;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        text-align: left;
+        width: 100%;
+    }
+
+    .tab-button:hover {
+        background: rgba(56, 189, 248, 0.08);
+        color: var(--primary);
+    }
+
+    .tab-button.active {
+        background: rgba(56, 189, 248, 0.12);
+        color: var(--primary);
+        border-left-color: var(--primary) !important;
+        font-weight: 700;
+    }
+
+    .tab-pane {
+        display: none;
+    }
+
+    .tab-pane.active {
+        display: block;
+    }
+
+    
+
+    /* Timeline Styles */
+    .timeline {
+        position: relative;
+        padding-left: 1.5rem;
+        margin-left: 0.5rem;
+        border-left: 2px solid var(--border);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: calc(-1.5rem - 6px);
+        top: 4px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: var(--primary);
+        border: 2px solid var(--card-bg);
+    }
+
+    .timeline-item.clockout-marker .timeline-marker {
+        background-color: var(--warning);
+    }
+
+    .timeline-content {
+        background-color: var(--bg);
+        border-radius: 0.5rem;
+        padding: 0.85rem 1.25rem;
+        border: 1px solid var(--border);
+    }
+
+    .timeline-date {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .timeline-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--text-main);
+    }
+
+    .timeline-desc {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+
+    /* Modal Overlay & Styling */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    
+
+    .modal-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 1.25rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        max-width: 580px;
+        padding: 2.5rem;
+        position: relative;
+    }
+
+    .modal-close-x {
+        position: absolute;
+        top: 1rem;
+        right: 1.25rem;
+        background: none;
+        border: none;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s;
+        line-height: 1;
+        padding: 0.2rem 0.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-close-x:hover {
+        color: var(--danger);
+        background-color: var(--bg-secondary);
+    }
+
+    .btn-print-pdf {
+        background-color: var(--primary) !important;
+    }
+
+    .btn-print-pdf:hover {
+        background-color: var(--primary-hover) !important;
+    }
+
+    
+
+    .payslip-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .payslip-brand {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--text);
+    }
+
+    .payslip-brand span {
+        color: var(--primary);
+    }
+
+    .payslip-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+
+    .payslip-meta {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        text-align: left;
+    }
+
+    .payslip-meta p {
+        margin-bottom: 0.35rem;
+        color: var(--text-main);
+    }
+
+    .payslip-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+    }
+
+    .payslip-table th {
+        border-bottom: 2px solid var(--border);
+        padding: 0.6rem 0;
+        color: var(--text-muted);
+        text-align: left;
+    }
+
+    .payslip-table td {
+        padding: 0.8rem 0;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-main);
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.25rem;
+    }
+
+    .btn-secondary {
+        background-color: var(--bg-secondary);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        padding: 0.7rem 1.25rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+        background-color: var(--border);
+    }
+
+    .btn-view-details {
+        background-color: rgba(79, 70, 229, 0.08);
+        color: var(--primary);
+        border: none;
+        padding: 0.4rem 0.85rem;
+        border-radius: 0.375rem;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.2s;
+    }
+
+    .btn-view-details:hover {
+        background-color: var(--primary);
+        color: white;
+    }
+
+    /* Profile Edit Forms styling */
+    .profile-section-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        text-align: left;
+    }
+
+    @media (max-width: 640px) {
+        .profile-section-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .profile-card-static {
+        background-color: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.4rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        font-size: 0.9rem;
+        background-color: var(--bg);
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        background-color: var(--card-bg);
+    }
+
+    /* Print Styles */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+
+        .payslip-print-container,
+        .payslip-print-container * {
+            visibility: visible;
+        }
+
+        .payslip-print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 2rem !important;
+            margin: 0 !important;
+            background-color: var(--card-bg);!important;
+            color: var(--text-main);!important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .payslip-print-container th,
+        .payslip-print-container td {
+            color: var(--text-main);!important;
+            border-color: var(--border) !important;
+        }
+
+        .no-print {
+            display: none !important;
+        }
+    }
+
+    .responsive-grid-three {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1rem;
+    }
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 992px) {
+            .admin-layout { grid-template-columns: 1fr; }
+            .admin-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 768px) {
+            .responsive-grid-three { grid-template-columns: 1fr !important; }
+            .welcome-banner { flex-direction: column; align-items: flex-start; gap: 1rem; padding: 1.25rem 1.5rem; }
+            .welcome-clock-wrapper { text-align: left !important; width: 100%; margin-top: 0.25rem; }
+            .stats-grid, .grid-cards { grid-template-columns: 1fr !important; }
+            .page-hero { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding-top: 0.75rem; }
+            .hero-time-wrapper { text-align: left; margin-top: 0.25rem; width: 100%; }
+            .table-container { overflow-x: auto; }
+            table { min-width: 600px; }
+            .profile-card { flex-direction: column; text-align: center; }
+            .tab-button { width: 100% !important; text-align: left !important; justify-content: flex-start !important; }
+            .page-content { padding: 0.5rem 0.5rem 0 0.5rem; }
+        }
+        @media (max-width: 480px) {
+            .welcome-banner { padding: 1rem; }
+            .welcome-clock-wrapper { text-align: left !important; }
+            #live-clock { font-size: 1.3rem !important; }
+            .btn-action, .fab-add { font-size: 0.8rem; padding: 0.5rem; }
+            h1, h2 { font-size: 1.3rem !important; }
+            .modal-card { width: 95%; padding: 1.5rem; margin: 1rem; }
+            .modal-content { padding: 1rem; }
+        }
+            </style>
+{% endblock %}
+
+{% block content %}
+<style>
+    .fc-event {
+        cursor: pointer;
+        border: none;
+        padding: 0.15rem 0.25rem;
+        border-radius: 0.3rem;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+    .fc-toolbar-title {
+        font-weight: 800 !important;
+        font-size: 1.25rem !important;
+        color: var(--text-main);
+    }
+    .fc-button-primary {
+        background: var(--primary) !important;
+        border-color: var(--primary) !important;
+        border-radius: 0.4rem !important;
+        font-weight: 600 !important;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var eventsData = {{ calendar_events_json|safe|default:"[]" }};
+        
+        if(calendarEl) {
+            var isMobile = window.innerWidth < 768;
+            window.calendarObj = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: isMobile ? {
+                    left: 'prev,next',
+                    center: 'title',
+                    right: 'today'
+                } : {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,dayGridWeek'
+                },
+                events: eventsData,
+                eventClick: function(info) {
+                    info.jsEvent.preventDefault();
+                    if (info.event.extendedProps && info.event.extendedProps.isPersonal) {
+                        if (confirm('Delete this private note?\n"' + info.event.title + '"')) {
+                            window.location.href = '/personal-notes/delete/' + info.event.extendedProps.noteId + '/';
+                        }
+                    }
+                }
+            });
+            if(document.getElementById('calendar-tab').classList.contains('active')) { window.calendarObj.render(); }
+        }
+    });
+</script>
+<!-- Slide-out Sidebar Drawer Menu -->
+<aside class="sidebar-menu">
+    <div class="sidebar-brand" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border);">
+        <div>
+            <div class="sidebar-brand-name" style="font-weight:700; font-size:0.95rem; color:var(--text-main);">{{ employee.user.first_name }} {{ employee.user.last_name }}</div>
+            <div class="sidebar-brand-role" style="font-size:0.78rem; color:var(--primary);">{{ employee.role }}</div>
+        </div>
+        <button id="sidebarCloseBtn" class="btn-close" aria-label="Close" style="font-size: 1.2rem; cursor: pointer; background: none; border: none; font-weight: bold; color: var(--text-muted);" onclick="closeEmpSidebar()">&times;</button>
+    </div>
+
+    <span class="sidebar-title" style="color:var(--text-muted); font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.75rem;">Menu & Navigation</span>
+    <button class="nav-link-item active" id="emp-nav-summary" onclick="switchTab('summary-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        📊 Dashboard Overview
+    </button>
+    <button class="nav-link-item" id="emp-nav-leaves" onclick="switchTab('leaves-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        📅 Leaves / Shifts
+    </button>
+    <button class="nav-link-item" id="emp-nav-attendance" onclick="switchTab('attendance-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        🕒 Attendance Logs
+    </button>
+    <button class="nav-link-item" id="emp-nav-payslips" onclick="switchTab('payslips-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        💵 Payslip Center
+    </button>
+    <button class="nav-link-item" id="emp-nav-profile" onclick="switchTab('profile-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        ⚙️ Profile Settings
+    </button>
+    <button class="nav-link-item" id="emp-nav-calendar" onclick="switchTab('calendar-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        🗓️ Calendar & Holidays
+    </button>
+    <button class="nav-link-item" id="emp-nav-goals" onclick="switchTab('goals-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        🎯 Goals & Targets
+    </button>
+    <button class="nav-link-item" id="emp-nav-projects" onclick="switchTab('projects-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        📁 My Projects
+    </button>
+    <button class="nav-link-item" id="emp-nav-assets" onclick="switchTab('assets-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        💻 Asset Manager
+    </button>
+    <button class="nav-link-item" id="emp-nav-expenses" onclick="switchTab('expenses-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        🧾 My Expenses
+    </button>
+    <button class="nav-link-item" id="emp-nav-letters" onclick="switchTab('letters-tab'); closeEmpSidebar();" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        📑 HR Letters & Certificates
+    </button>
+    <a href="{% url 'logout' %}" class="nav-link-item mobile-only-logout" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.65rem 0.75rem; border-radius: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--danger); text-decoration: none; align-items: center; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid var(--border);">
+        🚪 Sign Out
+    </a>
+</aside>
+
+<div class="dashboard-grid" style="margin-top: 0.5rem;">
+
+        <!-- Tab: Summary -->
+        <div id="summary-tab" class="tab-pane active">
+            <!-- Welcome Banner -->
+            <div class="welcome-banner">
+                <div class="welcome-text">
+                    <h1>Welcome, {{ employee.user.first_name }}!</h1>
+                    <p>{{ employee.role }} &bull; {{ employee.department }}</p>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                        {% if not attendance %}
+                            <a href="{% url 'clock_in' %}" class="btn-action" style="background: var(--success); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(16,185,129,0.2);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                                Clock In
+                            </a>
+                        {% elif not attendance.clock_out %}
+                            <a href="{% url 'clock_out' %}" class="btn-action" style="background: var(--danger); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(239,68,68,0.2);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                Clock Out
+                            </a>
+                        {% else %}
+                            <div style="background: rgba(255,255,255,0.2); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                Shift Completed
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="welcome-clock-wrapper" style="text-align: right; position: relative; z-index: 1;">
+                    <div id="live-clock" style="font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1;">
+                    </div>
+                    <div style="font-size: 0.85rem; font-weight: 500; opacity: 0.8; margin-top: 0.25rem;">{{ today|date:"l, d M Y" }}</div>
+                </div>
+            </div>
+
+            <!-- Leave Balances Progress Rings -->
+            <div class="leave-circular-container">
+                <!-- Annual Leave -->
+                <div class="leave-ring-card">
+                    <div class="leave-ring-details">
+                        <span class="leave-ring-title">Annual Leaves</span>
+                        <span class="leave-ring-val">{{ employee.annual_leave_balance }} Days</span>
+                        <span class="leave-ring-sub">Remaining of {{ annual_max }}</span>
+                    </div>
+                    <div class="svg-ring-container">
+                        <svg class="svg-ring-chart" viewBox="0 0 36 36">
+                            <path class="svg-ring-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="svg-ring-fill annual-fill" stroke-dasharray="{{ annual_pct }}, 100"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <text x="18" y="20.35" class="svg-ring-text">{{ annual_pct }}%</text>
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Sick Leave -->
+                <div class="leave-ring-card">
+                    <div class="leave-ring-details">
+                        <span class="leave-ring-title">Sick Leaves</span>
+                        <span class="leave-ring-val">{{ employee.sick_leave_balance }} Days</span>
+                        <span class="leave-ring-sub">Remaining of {{ sick_max }}</span>
+                    </div>
+                    <div class="svg-ring-container">
+                        <svg class="svg-ring-chart" viewBox="0 0 36 36">
+                            <path class="svg-ring-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="svg-ring-fill sick-fill" stroke-dasharray="{{ sick_pct }}, 100"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <text x="18" y="20.35" class="svg-ring-text">{{ sick_pct }}%</text>
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Casual Leave -->
+                <div class="leave-ring-card">
+                    <div class="leave-ring-details">
+                        <span class="leave-ring-title">Casual Leaves</span>
+                        <span class="leave-ring-val">{{ employee.casual_leave_balance }} Days</span>
+                        <span class="leave-ring-sub">Remaining of {{ casual_max }}</span>
+                    </div>
+                    <div class="svg-ring-container">
+                        <svg class="svg-ring-chart" viewBox="0 0 36 36">
+                            <path class="svg-ring-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="svg-ring-fill casual-fill" stroke-dasharray="{{ casual_pct }}, 100"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <text x="18" y="20.35" class="svg-ring-text">{{ casual_pct }}%</text>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Shift Details -->
+                <div class="leave-ring-card" style="display:flex; flex-direction:column; justify-content:center; padding: 1.5rem; text-align: left;">
+                    <span class="leave-ring-title" style="margin-bottom:1rem; font-weight:800; color:var(--text-main); font-size:1.1rem;">Assigned Shift</span>
+                    {% if employee.shift %}
+                        <span style="font-size: 1.35rem; font-weight: 800; color: var(--primary);">{{ employee.shift.name }}</span>
+                        <div style="display:flex; align-items:center; gap: 0.5rem; margin-top: 0.5rem; color: var(--text-muted); font-size: 0.95rem; font-weight:600;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            {{ employee.shift.start_time|time:"h:i A" }} - {{ employee.shift.end_time|time:"h:i A" }}
+                        </div>
+                        <div style="margin-top: 0.75rem;">
+                            <span style="font-size: 0.8rem; font-weight:700; color: var(--text-muted); display:inline-block; padding:0.3rem 0.6rem; background:var(--bg-secondary); border-radius:6px; border:1px solid var(--border);">{{ employee.shift.working_days }}</span>
+                        </div>
+                    {% else %}
+                        <span style="font-size: 1rem; color: var(--text-muted); font-weight:600;">No Shift Assigned</span>
+                    {% endif %}
+                </div>
+
+                <!-- Attendance Clock Action Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Daily Attendance</h2>
+                    </div>
+                    <div class="attendance-status">
+                        {% if not attendance %}
+                        <span class="status-badge missing">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                style="margin-right:0.25rem;">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                            </svg>
+                            Not Clocked In Today
+                        </span>
+                        {% elif not attendance.clock_out %}
+                        <span class="status-badge active">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                                style="margin-right:0.25rem;">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            Active: Clocked In {{ attendance.clock_in|time:"H:i" }}
+                        </span>
+                        {% else %}
+                        <span class="status-badge completed">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                                style="margin-right:0.25rem; color:#059669;">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Shift Completed
+                        </span>
+                        <p style="font-size:0.85rem; color:var(--text-muted); line-height: 1.4;">
+                            Clock In: <strong>{{ attendance.clock_in|time:"H:i" }}</strong><br>
+                            Clock Out: <strong>{{ attendance.clock_out|time:"H:i" }}</strong><br>
+                            Duration: <strong>{{ attendance.total_hours|default:"-" }} hours</strong>
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:1.5rem;">
+                <!-- Personal Summary Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Employee Summary</h2>
+                    </div>
+                    <div style="text-align: left; font-size: 0.9rem;">
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Name:</strong> {{ employee.user.first_name }} {{ employee.user.last_name }}</p>
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Designation:</strong> {{ employee.designation }}</p>
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Employee ID:</strong> {{ employee.employee_id_code }}</p>
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Joined:</strong> {{ employee.hire_date }}</p>
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Department:</strong> {{ employee.department }}</p>
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Role:</strong> {{ employee.role }}</p>
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Gender / DOB:</strong> {{ employee.gender }}{% if employee.date_of_birth %} • {{ employee.date_of_birth }}{% endif %}</p>
+                        <p style="margin-bottom: 0.75rem;"><strong style="color: var(--text-muted);">Address:</strong> {{ employee.address }}</p>
+                        <p><strong style="color: var(--text-muted);">Wage Base:</strong> ${{ employee.salary }} / month</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Tab 1: Leaves Portal -->
+        <div id="leaves-tab" class="tab-pane active">
+            <!-- Apply leave form -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Apply for Leave</h2>
+                </div>
+                <form class="leave-form" method="POST" action="{% url 'apply_leave' %}">
+                    {% csrf_token %}
+                    <div class="form-group responsive-grid-three">
+                        <div>
+                            <label for="leave_type">Leave Type</label>
+                            <select name="leave_type" id="leave_type" required>
+                                {% for code, label in leave_choices %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="start_date">Start Date</label>
+                            <input type="date" name="start_date" id="start_date" required>
+                        </div>
+                        <div>
+                            <label for="end_date">End Date</label>
+                            <input type="date" name="end_date" id="end_date" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reason">Reason for Leave</label>
+                        <textarea name="reason" id="reason" rows="3" required
+                            placeholder="Describe your leave requirements..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit-leave">Submit Leave Request</button>
+                </form>
+            </div>
+
+
+
+            <!-- Leave request history -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h2 class="card-title">Leave History</h2>
+                </div>
+                <div class="table-container">
+                    {% if leaves %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Reason</th>
+                                <th>LOP Days</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leave in leaves %}
+                            <tr>
+                                <td><strong>{{ leave.leave_type }}</strong></td>
+                                <td>{{ leave.start_date }}</td>
+                                <td>{{ leave.end_date }}</td>
+                                <td>{{ leave.reason|truncatechars:35 }}</td>
+                                <td>
+                                    {% if leave.lop_days > 0 %}
+                                        <span style="color: var(--danger); font-weight: 700;">{{ leave.lop_days }}</span>
+                                    {% else %}
+                                        <span style="color: var(--text-muted);">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-{{ leave.status }}">{{ leave.status }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">
+                        No leave requests submitted yet.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Apply Shift Change Request form -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h2 class="card-title">Request Shift Change</h2>
+                </div>
+                <form class="leave-form" method="POST" action="{% url 'apply_shift_request' %}">
+                    {% csrf_token %}
+                    <div class="form-group" style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+                        <div>
+                            <label for="requested_shift">Select New Shift</label>
+                            <select name="requested_shift" id="requested_shift" required>
+                                {% for shift in shifts %}
+                                <option value="{{ shift.id }}">{{ shift.name }} ({{ shift.start_time|time:"H:i" }} - {{ shift.end_time|time:"H:i" }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reason">Reason for Shift Change</label>
+                        <textarea name="reason" id="reason" rows="3" required
+                            placeholder="Explain why you need this shift change..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit-leave">Submit Shift Request</button>
+                </form>
+            </div>
+
+            <!-- Shift request history -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h2 class="card-title">Shift Request History</h2>
+                </div>
+                <div class="table-container">
+                    {% if shift_requests %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Requested Shift</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Date Applied</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in shift_requests %}
+                            <tr>
+                                <td>{{ req.requested_shift.name }}</td>
+                                <td>{{ req.reason|truncatechars:35 }}</td>
+                                <td>
+                                    <span class="badge badge-{{ req.status }}">{{ req.status }}</span>
+                                </td>
+                                <td>{{ req.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">
+                        No shift requests submitted yet.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Attendance Logs -->
+        <div id="attendance-tab" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Attendance History Logs</h2>
+                </div>
+                {% if attendance_history %}
+                <div class="timeline" style="margin-top: 1rem;">
+                    {% for record in attendance_history %}
+                    <div class="timeline-item {% if record.clock_out %}clockout-marker{% endif %}">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-date">{{ record.date|date:"l, d F Y" }}</div>
+                            <div class="timeline-title">
+                                Clocked In: {{ record.clock_in|time:"H:i:s" }}
+                                {% if record.clock_out %}
+                                &bull; Clocked Out: {{ record.clock_out|time:"H:i:s" }}
+                                {% else %}
+                                (Still Active)
+                                {% endif %}
+                            </div>
+                            <div class="timeline-desc">
+                                {% if record.clock_out %}
+                                Total working hours calculated: <strong>{{ record.total_hours }} hrs</strong>
+                                {% else %}
+                                Active shift under progression.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination Navigation -->
+                {% if attendance_history.has_other_pages %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-top: 1px solid var(--border); background-color: var(--bg); flex-wrap: wrap; gap: 0.75rem; border-bottom-left-radius: 0.75rem; border-bottom-right-radius: 0.75rem; margin-top: 1.5rem;">
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        Page <strong>{{ attendance_history.number }}</strong> of <strong>{{ attendance_history.paginator.num_pages }}</strong> (Showing {{ attendance_history.object_list|length }} of {{ attendance_history.paginator.count }} logs)
+                    </span>
+                    
+                    <div style="display: flex; gap: 0.25rem;">
+                        {% if attendance_history.has_previous %}
+                            <a href="?page=1&tab=attendance" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 0.375rem; font-size: 0.85rem; color: var(--text-main); background-color: var(--card-bg); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center;">&laquo; First</a>
+                            <a href="?page={{ attendance_history.previous_page_number }}&tab=attendance" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 0.375rem; font-size: 0.85rem; color: var(--text-main); background-color: var(--card-bg); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center;">Previous</a>
+                        {% endif %}
+                        
+                        <span style="padding: 0.35rem 0.85rem; border: 1px solid var(--primary); border-radius: 0.375rem; font-size: 0.85rem; color: white; background-color: var(--primary); font-weight: 700; display: inline-flex; align-items: center;">
+                            {{ attendance_history.number }}
+                        </span>
+                        
+                        {% if attendance_history.has_next %}
+                            <a href="?page={{ attendance_history.next_page_number }}&tab=attendance" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 0.375rem; font-size: 0.85rem; color: var(--text-main); background-color: var(--card-bg); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center;">Next</a>
+                            <a href="?page={{ attendance_history.paginator.num_pages }}&tab=attendance" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 0.375rem; font-size: 0.85rem; color: var(--text-main); background-color: var(--card-bg); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center;">Last &raquo;</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% else %}
+                <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2.5rem;">
+                    No attendance records logged yet.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab 3: Payslip Center -->
+        <div id="payslips-tab" class="tab-pane">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">My Generated Payslips</h2>
+                </div>
+                <div class="table-container">
+                    {% if payslips %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Month/Year</th>
+                                <th>Net Payout</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pay in payslips %}
+                            <tr>
+                                <td><strong>{{ pay.month_year }}</strong></td>
+                                <td><strong style="color: var(--primary);">${{ pay.net_salary }}</strong></td>
+                                <td>
+                                    {% if pay.status == 'Paid' %}
+                                    <span class="badge badge-Approved">Paid</span>
+                                    {% else %}
+                                    <span class="badge badge-Pending">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    <button class="btn-view-details"
+                                        onclick="openPayslipModal('{{ pay.id }}', '{{ pay.month_year }}', '{{ pay.basic_salary }}', '{{ pay.allowances }}', '{{ pay.deductions }}', '{{ pay.net_salary }}', '{{ pay.status }}', '{{ pay.lop_days }}', '{{ pay.lop_deduction }}', '{{ pay.total_late_mins }}', '{{ pay.severe_late_incidents }}', '{{ pay.late_penalty_lop_days }}')">
+                                        View PDF Payslip
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">
+                        No payslips generated yet.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Profile Settings -->
+        <div id="profile-tab" class="tab-pane">
+            <div class="profile-section-grid">
+                <!-- Personal Info Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Edit Details</h2>
+                    </div>
+                    <form method="POST" action="{% url 'profile_update' %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="profile_email">Email Address</label>
+                            <input type="email" name="email" id="profile_email" class="form-control"
+                                value="{{ employee.user.email }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile_phone">Phone Number</label>
+                            <input type="text" name="phone" id="profile_phone" class="form-control"
+                                value="{{ employee.phone|default:'' }}" placeholder="Enter phone number">
+                        </div>
+                        <button type="submit" class="btn-submit-leave" style="margin-top:0.5rem; width:100%;">Save
+                            Profile Changes</button>
+                    </form>
+                </div>
+
+                <!-- Password settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Change Password</h2>
+                    </div>
+                    <form method="POST" action="{% url 'change_password' %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="old_password">Current Password</label>
+                            <input type="password" name="old_password" id="old_password" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new_password">New Password</label>
+                            <input type="password" name="new_password" id="new_password" class="form-control" required
+                                placeholder="Min 6 characters">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm_password">Confirm New Password</label>
+                            <input type="password" name="confirm_password" id="confirm_password" class="form-control"
+                                required>
+                        </div>
+                        <button type="submit" class="btn-submit-leave"
+                            style="margin-top:0.5rem; width:100%; background-color:#dc2626;">Update Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+<!-- Tab: My Reviews -->
+<div id="reviews-tab" class="tab-pane">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">My Performance Reviews</h2>
+        </div>
+        <div style="padding:1rem;">
+            {% if performance_reviews %}
+            <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Reviewer</th>
+                        <th>Rating</th>
+                        <th>Feedback</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in performance_reviews %}
+                    <tr>
+                        <td>{{ r.review_period }}</td>
+                        <td>{% if r.reviewer %}{{ r.reviewer.user.first_name }}{% else %}-{% endif %}</td>
+                        <td>{{ r.rating }}</td>
+                        <td>{{ r.feedback|default:'-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted);">No reviews available yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tab: My Trainings -->
+<div id="trainings-tab" class="tab-pane">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">My Trainings & Enrollments</h2>
+        </div>
+        <div style="padding:1rem;">
+            {% if training_enrollments %}
+            <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Training</th>
+                        <th>Enrolled</th>
+                        <th>Completed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in training_enrollments %}
+                    <tr>
+                        <td>{{ e.training.title }}</td>
+                        <td>{{ e.enrolled_at|date:'d M Y' }}</td>
+                        <td>{% if e.completed %}Yes{% else %}No{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted);">You are not enrolled in any trainings.</p>
+            {% endif %}
+        </div>
+    </div> <!-- Close card -->
+</div> <!-- Close trainings-tab -->
+
+<!-- Tab: Goals -->
+<div id="goals-tab" class="tab-pane">
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header">
+            <h2 class="card-title">🎯 Company Goals</h2>
+        </div>
+        <div class="table-container" style="padding:1rem;">
+            {% if goals %}
+            <table style="min-width:600px;">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Project</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for goal in goals %}
+                    <tr>
+                        <td>
+                            <div style="font-weight:700;">{{ goal.subject }}</div>
+                            {% if goal.description %}<div style="font-size:0.75rem;color:var(--text-muted);">{{ goal.description|truncatechars:50 }}</div>{% endif %}
+                        </td>
+                        <td style="font-weight:700;">{{ goal.project.name|default:'-' }}</td>
+                        <td style="color:var(--text-muted);font-size:0.85rem;">{{ goal.start_date }}</td>
+                        <td style="color:var(--text-muted);font-size:0.85rem;">{{ goal.end_date }}</td>
+                        <td><span class="badge badge-{{ goal.status }}">{{ goal.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color:var(--text-muted); text-align:center; padding:2rem;">No active goals to display.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<!-- Tab: Projects -->
+<div id="projects-tab" class="tab-pane">
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header">
+            <h2 class="card-title">My Assigned Projects</h2>
+        </div>
+        <div class="table-container">
+            {% if projects %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Client</th>
+                        <th>Deadline</th>
+                        <th>Progress</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in projects %}
+                    <tr>
+                        <td style="font-weight:700;">{{ p.name }}</td>
+                        <td>{{ p.client.name }}</td>
+                        <td style="color:var(--text-muted);font-size:0.85rem;">{{ p.deadline|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ p.progress }}%;"></div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ p.progress }}%</span>
+                        </td>
+                        <td><span class="badge badge-{{ p.status }}">{{ p.status }}</span></td>
+                        <td>
+                            <a href="{% url 'employee_project_detail' p.id %}" class="btn-action" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; background: var(--primary); color: white; border-radius: 0.25rem; text-decoration: none;">View Updates & Chat</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color:var(--text-muted); text-align:center; padding:2rem;">No assigned projects to display.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tab 5: Calendar -->
+<div id="calendar-tab" class="tab-pane">
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <h2 class="card-title">🗓️ Company & Personal Calendar</h2>
+            <button type="button" onclick="document.getElementById('addPersonalNoteModal').style.display='flex'" class="btn-submit" style="padding:0.45rem 0.9rem; font-size:0.82rem; display:inline-flex; align-items:center; gap:0.4rem; background: linear-gradient(135deg, var(--primary), var(--accent));">
+                🔒 Add Private Note
+            </button>
+        </div>
+        <div style="padding: 0.5rem 1.5rem 0.25rem 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
+            🔒 Private notes are 100% confidential and only visible to you.
+        </div>
+        <div class="card-body">
+            <div id="calendar"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Personal Private Note Modal -->
+<div id="addPersonalNoteModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+    <div class="modal-content" style="background:var(--card-bg); width:450px; border-radius:12px; padding:1.75rem; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h2 style="font-size:1.15rem; font-weight:700;">🔒 Add Private Calendar Note</h2>
+            <button type="button" onclick="document.getElementById('addPersonalNoteModal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            This note is confidential to your personal login. No managers, admins, or coworkers will see it.
+        </p>
+        <form method="POST" action="{% url 'add_personal_note' %}">
+            {% csrf_token %}
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.4rem; font-weight:600; font-size:0.85rem;">Note Title *</label>
+                <input type="text" name="title" required placeholder="e.g. Doctor Appointment / Personal Task" style="width:100%; padding:0.65rem; border:1px solid var(--border); border-radius:6px;">
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.4rem; font-weight:600; font-size:0.85rem;">Date *</label>
+                <input type="date" name="date" required style="width:100%; padding:0.65rem; border:1px solid var(--border); border-radius:6px;">
+            </div>
+            <div class="form-group" style="margin-bottom:1.5rem;">
+                <label style="display:block; margin-bottom:0.4rem; font-weight:600; font-size:0.85rem;">Details / Notes (Optional)</label>
+                <textarea name="note" rows="3" placeholder="Add any private details..." style="width:100%; padding:0.65rem; border:1px solid var(--border); border-radius:6px;"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="document.getElementById('addPersonalNoteModal').style.display='none'" style="padding:0.5rem 1rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); cursor:pointer;">Cancel</button>
+                <button type="submit" class="btn-submit" style="padding:0.5rem 1rem; border-radius:6px; background:var(--primary); color:white; border:none; font-weight:600; cursor:pointer;">Save Private Note</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Tab: Assets -->
+<div id="assets-tab" class="tab-pane">
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header">
+            <h2 class="card-title">💻 My Assets</h2>
+        </div>
+        <div class="table-container" style="padding:1rem;">
+            {% if assets %}
+            <table style="min-width:600px;">
+                <thead>
+                    <tr>
+                        <th>Asset Name</th>
+                        <th>Asset ID</th>
+                        <th>Category</th>
+                        <th>Assigned Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in assets %}
+                    <tr>
+                        <td style="font-weight:700;">{{ asset.name }}</td>
+                        <td>{{ asset.asset_id }}</td>
+                        <td>{{ asset.category }}</td>
+                        <td style="color:var(--text-muted);font-size:0.85rem;">{{ asset.assigned_date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color:var(--text-muted); text-align:center; padding:2rem;">No assets currently assigned to you.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Expenses -->
+<div id="expenses-tab" class="tab-pane">
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 class="card-title">🧾 My Expense Claims</h2>
+            <button onclick="document.getElementById('submitExpenseModal').style.display='flex';" class="btn-action" style="background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600;">
+                <i class="fas fa-plus"></i> Submit Claim
+            </button>
+        </div>
+        <div class="table-container" style="padding:1rem;">
+            {% if expenses %}
+            <table style="min-width:600px;">
+                <thead>
+                    <tr>
+                        <th>Expense Title</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Receipt</th>
+                        <th>Submitted On</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exp in expenses %}
+                    <tr>
+                        <td style="font-weight:700;">{{ exp.title }}</td>
+                        <td>{{ exp.category }}</td>
+                        <td style="font-weight:600;">${{ exp.amount }}</td>
+                        <td>
+                            {% if exp.receipt %}
+                            <a href="{{ exp.receipt.url }}" target="_blank" style="color: var(--primary); text-decoration: none;"><i class="fas fa-file-invoice"></i> View</a>
+                            {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:var(--text-muted);font-size:0.85rem;">{{ exp.date_submitted|date:"M d, Y" }}</td>
+                        <td>
+                            {% if exp.status == 'Pending' %}
+                            <span class="badge badge-Pending">Pending</span>
+                            {% elif exp.status == 'Approved' %}
+                            <span class="badge badge-Approved">Approved</span>
+                            {% else %}
+                            <span class="badge badge-Rejected">Rejected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color:var(--text-muted); text-align:center; padding:2rem;">You have not submitted any expense claims.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Letters & Certificates -->
+<div id="letters-tab" class="tab-pane">
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header">
+            <h2 class="card-title">📜 My Official Letters & Certificates</h2>
+        </div>
+        <div class="table-container" style="padding:1rem;">
+            {% if my_letters %}
+            <table style="min-width:650px;">
+                <thead>
+                    <tr>
+                        <th>Ref Code</th>
+                        <th>Document Title</th>
+                        <th>Type</th>
+                        <th>Issue Date</th>
+                        <th>Signatory</th>
+                        <th style="text-align:right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for let in my_letters %}
+                    <tr>
+                        <td style="font-family:monospace; font-weight:700; color:var(--primary);">{{ let.reference_number }}</td>
+                        <td style="font-weight:700;">{{ let.title }}</td>
+                        <td><span class="badge" style="background:#e0f2fe; color:#0369a1;">{{ let.letter_type }}</span></td>
+                        <td>{{ let.issue_date|date:"M d, Y" }}</td>
+                        <td style="font-size:0.85rem;">{{ let.signatory_name }}</td>
+                        <td style="text-align:right;">
+                            <a href="{% url 'view_letter_print' let.id %}" target="_blank" class="btn" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; color:#334155; text-decoration:none; font-weight:600;">
+                                🖨️ View / Download PDF
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color:var(--text-muted); text-align:center; padding:2rem;">No official letters or certificates issued to you yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+    </div>
+
+</div>
+
+<!-- Submit Expense Modal -->
+<div id="submitExpenseModal" class="modal-backdrop" style="display: none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:10000;">
+    <div class="modal-content" style="background: white; border-radius: 1rem; padding: 0; display: flex; flex-direction: column; max-height: 90vh; width: 100%; max-width: 400px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div class="modal-header" style="background: var(--bg-secondary); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); flex-shrink: 0;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin: 0;">Submit Expense Claim</h2>
+            <button type="button" onclick="document.getElementById('submitExpenseModal').style.display='none';" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);"><i class="fas fa-times"></i></button>
+        </div>
+        <form action="{% url 'submit_expense' %}" method="POST" enctype="multipart/form-data" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;">
+            {% csrf_token %}
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-weight: 600; font-size: 0.85rem;">Expense Title</label>
+                <input type="text" name="title" required placeholder="e.g. Client Lunch" class="form-control" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem;">
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-weight: 600; font-size: 0.85rem;">Category</label>
+                <select name="category" required class="form-control" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem;">
+                    <option value="Travel">Travel</option>
+                    <option value="Meals">Meals</option>
+                    <option value="Supplies">Supplies</option>
+                    <option value="Internet/Phone">Internet/Phone</option>
+                    <option value="Medical">Medical</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-weight: 600; font-size: 0.85rem;">Amount ($)</label>
+                <input type="number" step="0.01" min="0.01" name="amount" required placeholder="e.g. 45.50" class="form-control" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem;">
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label id="receiptLabel" style="font-weight: 600; font-size: 0.85rem;">Receipt / Bill (Image/PDF)</label>
+                <input type="file" name="receipt" accept="image/*,.pdf" required class="form-control" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg-secondary);">
+                <span id="receiptHelp" style="font-size: 0.75rem; color: var(--text-muted);">Upload your bill/receipt here.</span>
+            </div>
+
+            <div id="medicalFieldsContainer" style="display: none; flex-direction: column; gap: 1rem; margin-top: 0.5rem; padding-top: 1rem; border-top: 1px dashed var(--border);">
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="font-weight: 600; font-size: 0.85rem; color: var(--primary);">Prescription (Optional)</label>
+                    <input type="file" name="prescription" id="prescriptionInput" accept="image/*,.pdf" class="form-control" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg-secondary);">
+                </div>
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="font-weight: 600; font-size: 0.85rem; color: var(--primary);">Medical Report (Optional)</label>
+                    <input type="file" name="medical_report" id="medicalReportInput" accept="image/*,.pdf" class="form-control" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg-secondary);">
+                </div>
+            </div>
+            
+            <script>
+                document.querySelector('select[name="category"]').addEventListener('change', function(e) {
+                    const label = document.getElementById('receiptLabel');
+                    const help = document.getElementById('receiptHelp');
+                    const medicalFields = document.getElementById('medicalFieldsContainer');
+                    if(e.target.value === 'Medical') {
+                        medicalFields.style.display = 'flex';
+                        help.innerText = 'Upload your main medical bill here.';
+                    } else {
+                        medicalFields.style.display = 'none';
+                        document.getElementById('prescriptionInput').value = '';
+                        document.getElementById('medicalReportInput').value = '';
+                        help.innerText = 'Upload your bill/receipt here.';
+                    }
+                });
+            </script>
+            <button type="submit" style="padding: 0.75rem; border-radius: 0.5rem; border: none; background: var(--primary); color: white; font-weight: 600; cursor: pointer; margin-top: 1rem;">Submit Claim</button>
+        </form>
+    </div>
+</div>
+
+<!-- Interactive Payslip PDF-style Modal -->
+
+<div id="payslipModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card payslip-print-container">
+        <button class="modal-close-x no-print" onclick="closePayslipModal()" title="Close">&times;</button>
+        <div class="payslip-header">
+            <div class="payslip-brand">Creative<span>Tech</span></div>
+            <div class="payslip-title">Official Payslip</div>
+        </div>
+        <div class="payslip-meta">
+            <div>
+                <p><strong>Employee:</strong> {{ employee.user.first_name }} {{ employee.user.last_name }}</p>
+                <p><strong>Role:</strong> {{ employee.role }}</p>
+                <p><strong>Department:</strong> {{ employee.department }}</p>
+            </div>
+            <div style="text-align: right;">
+                <p><strong>Pay Period:</strong> <span id="modalMonth" style="font-weight: 700;"></span></p>
+                <p><strong>Status:</strong> <span id="modalStatus"
+                        style="font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px;"></span></p>
+            </div>
+        </div>
+        <div class="table-container">
+        <table class="payslip-table">
+            <thead>
+                <tr>
+                    <th>Salary Component</th>
+                    <th style="text-align: right;">Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Basic Monthly Wage</td>
+                    <td style="text-align: right;" id="modalBasic"></td>
+                </tr>
+                <tr>
+                    <td>Allowances & Bonuses</td>
+                    <td style="text-align: right; color: #059669;" id="modalAllowances"></td>
+                </tr>
+                <tr>
+                    <td>Deductions & Adjustments</td>
+                    <td style="text-align: right; color: #dc2626;" id="modalDeductions"></td>
+                </tr>
+                <tr id="modalLopRow" style="display: none;">
+                    <td>Loss of Pay (LOP) Deduction (<span id="modalLopDays"></span> days)</td>
+                    <td style="text-align: right; color: #dc2626;" id="modalLopAmount"></td>
+                </tr>
+                <tr id="modalLateDetailsRow" style="display: none; font-size: 0.85rem; color: var(--text-muted);">
+                    <td>(Included in LOP: <span id="modalLateMins"></span> late mins, <span id="modalSevereIncidents"></span> severe incidents, <span id="modalPenaltyLop"></span> days penalty)</td>
+                    <td></td>
+                </tr>
+                <tr style="border-top: 2px solid var(--border); font-size: 1.15rem; font-weight: 800;">
+                    <td>Net Salary Payout</td>
+                    <td style="text-align: right; color: var(--primary);" id="modalNet"></td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+        <div class="modal-footer no-print">
+            <button class="btn-action btn-print-pdf"
+                style="max-width: 140px; display: flex; align-items: center; justify-content: center; gap: 0.35rem;"
+                onclick="window.print()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect width="12" height="8" x="6" y="14" />
+                </svg>
+                Print PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function closeEmpSidebar() {
+        const sb = document.querySelector('.sidebar-menu');
+        if (sb) sb.classList.remove('active');
+    }
+
+    // Tab switching logic
+    function switchTab(tabId) {
+        const panes = document.querySelectorAll('.tab-pane');
+        panes.forEach(pane => pane.classList.remove('active'));
+        
+        const allButtons = document.querySelectorAll('.tab-button, .nav-link-item');
+        allButtons.forEach(button => button.classList.remove('active'));
+        
+        const targetPane = document.getElementById(tabId);
+        if (targetPane) targetPane.classList.add('active');
+        
+        allButtons.forEach(btn => {
+            const attr = btn.getAttribute('onclick');
+            if (attr && attr.includes(tabId)) {
+                btn.classList.add('active');
+            }
+        });
+        localStorage.setItem('activeEmployeeTab', tabId);
+        
+        if (tabId === 'calendar-tab' && window.calendarObj) {
+            setTimeout(() => { window.calendarObj.render(); }, 100);
+        }
+    }
+
+    // Auto load active tab on page refresh/pagination
+    document.addEventListener("DOMContentLoaded", function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlTab = urlParams.get('tab');
+        if (urlTab) {
+            const tabId = urlTab.endsWith('-tab') ? urlTab : urlTab + '-tab';
+            const pane = document.getElementById(tabId);
+            if (pane) { switchTab(tabId); }
+        } else {
+            const storedTab = localStorage.getItem('activeEmployeeTab');
+            if (storedTab) {
+                const pane = document.getElementById(storedTab);
+                if (pane) switchTab(storedTab);
+            }
+        }
+    });
+
+    // Live Clock
+    function updateClock() {
+        const el = document.getElementById('live-clock');
+        if (!el) return;
+        const now = new Date();
+        el.textContent = now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:true});
+    }
+    updateClock();
+    setInterval(updateClock, 10000);
+
+    // Modal logic
+    function openPayslipModal(id, month, basic, allowances, deductions, net, status, lop_days, lop_deduction, late_mins, severe_incidents, penalty_lop) {
+        document.getElementById('modalMonth').innerText = month;
+        document.getElementById('modalBasic').innerText = parseFloat(basic).toFixed(2);
+        document.getElementById('modalAllowances').innerText = '+' + parseFloat(allowances).toFixed(2);
+        document.getElementById('modalDeductions').innerText = '-' + parseFloat(deductions).toFixed(2);
+        document.getElementById('modalNet').innerText = parseFloat(net).toFixed(2);
+
+        let ld = parseInt(lop_days) || 0;
+        let la = parseFloat(lop_deduction) || 0.0;
+        if (ld > 0) {
+            document.getElementById('modalLopRow').style.display = 'table-row';
+            document.getElementById('modalLopDays').innerText = ld;
+            document.getElementById('modalLopAmount').innerText = '-' + la.toFixed(2);
+        } else {
+            document.getElementById('modalLopRow').style.display = 'none';
+        }
+        
+        let lm = parseInt(late_mins) || 0;
+        if (lm > 0) {
+            document.getElementById('modalLateDetailsRow').style.display = 'table-row';
+            document.getElementById('modalLateMins').innerText = lm;
+            document.getElementById('modalSevereIncidents').innerText = parseInt(severe_incidents) || 0;
+            document.getElementById('modalPenaltyLop').innerText = parseFloat(penalty_lop).toFixed(2);
+        } else {
+            document.getElementById('modalLateDetailsRow').style.display = 'none';
+        }
+
+        const statusSpan = document.getElementById('modalStatus');
+        statusSpan.innerText = status;
+        if (status === 'Paid') {
+            statusSpan.style.backgroundColor = 'var(--success-bg)';
+            statusSpan.style.color = '#065f46';
+        } else {
+            statusSpan.style.backgroundColor = 'var(--warning-bg)';
+            statusSpan.style.color = '#92400e';
+        }
+
+        document.getElementById('payslipModal').style.display = 'flex';
+    }
+
+    function closePayslipModal() {
+        document.getElementById('payslipModal').style.display = 'none';
+    }
+
+    window.addEventListener('click', function (event) {
+        if (event.target === document.getElementById('payslipModal')) closePayslipModal();
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closePayslipModal();
+    });
+</script>
+{% endblock %}

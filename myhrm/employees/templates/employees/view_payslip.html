@@ -1,0 +1,219 @@
+{% extends 'employees/admin_base.html' %}
+{% load static %}
+
+{% block title %}Payslip - {{ employee.user.first_name }} {{ employee.user.last_name }}{% endblock %}
+
+{% block admin_content %}
+<style>
+    /* Payslip Styles */
+    .payslip-print-container {
+        background: #fff;
+        color: #1e293b;
+        border-radius: 1rem;
+        padding: 3rem;
+        width: 100%;
+        max-width: 800px;
+        margin: 2rem auto;
+        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+    }
+
+    .payslip-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .payslip-brand {
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        color: #1e293b;
+    }
+
+    .payslip-brand span {
+        color: #3b82f6;
+    }
+
+    .payslip-title {
+        text-align: right;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .payslip-meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+        background: #f8fafc;
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+    }
+
+    @media (max-width: 640px) {
+        .payslip-print-container { padding: 1.25rem; margin: 0.5rem auto; }
+        .payslip-header { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+        .payslip-title { text-align: left; }
+        .payslip-meta { grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
+        .payslip-actions { flex-direction: column; }
+        .btn-print-pdf { width: 100%; text-align: center; }
+    }
+
+    .payslip-meta p {
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+        color: #334155;
+    }
+
+    .payslip-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2rem;
+    }
+
+    .payslip-table th {
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        padding: 1rem;
+        text-align: left;
+    }
+
+    .payslip-table td {
+        padding: 1.25rem 1rem;
+        border-bottom: 1px solid #e2e8f0;
+        color: #1e293b;
+        font-weight: 500;
+    }
+
+    .payslip-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .btn-print-pdf {
+        background: #1e293b;
+        color: #fff;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        border: none;
+    }
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        .payslip-print-container, .payslip-print-container * {
+            visibility: visible;
+        }
+        .payslip-print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            box-shadow: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+        }
+        .no-print {
+            display: none !important;
+        }
+    }
+</style>
+
+<div class="payslip-print-container">
+    <div class="payslip-header">
+        <div class="payslip-brand">Creative<span>Tech</span></div>
+        <div class="payslip-title">Official Payslip</div>
+    </div>
+    <div class="payslip-meta">
+        <div>
+            <p><strong>Employee:</strong> {{ employee.user.first_name }} {{ employee.user.last_name }}</p>
+            <p><strong>Role:</strong> {{ employee.role }}</p>
+            <p><strong>Department:</strong> {{ employee.department }}</p>
+        </div>
+        <div style="text-align: right;">
+            <p><strong>Pay Period:</strong> <span style="font-weight: 700;">{{ payslip.month_year }}</span></p>
+            <p><strong>Status:</strong> 
+                {% if payslip.status == 'Paid' %}
+                    <span style="font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; background: #d1fae5; color: #065f46;">Paid</span>
+                {% else %}
+                    <span style="font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; background: #fef3c7; color: #92400e;">Pending</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="table-container" style="box-shadow: none;">
+        <table class="payslip-table">
+            <thead>
+                <tr>
+                    <th>Salary Component</th>
+                    <th style="text-align: right;">Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Basic Monthly Wage</td>
+                    <td style="text-align: right;">{{ payslip.basic_salary }}</td>
+                </tr>
+                <tr>
+                    <td>Allowances & Bonuses</td>
+                    <td style="text-align: right; color: #059669;">+{{ payslip.allowances }}</td>
+                </tr>
+                <tr>
+                    <td>Deductions & Adjustments</td>
+                    <td style="text-align: right; color: #dc2626;">-{{ payslip.deductions }}</td>
+                </tr>
+                {% if payslip.lop_days > 0 %}
+                <tr>
+                    <td>Loss of Pay (LOP) Deduction ({{ payslip.lop_days }} days)</td>
+                    <td style="text-align: right; color: #dc2626;">-{{ payslip.lop_deduction }}</td>
+                </tr>
+                {% endif %}
+                {% if payslip.total_late_mins > 0 %}
+                <tr style="font-size: 0.85rem; color: #64748b;">
+                    <td>(Included in LOP: {{ payslip.total_late_mins }} late mins, {{ payslip.severe_incidents }} severe incidents, {{ payslip.late_penalty_lop_days }} days penalty)</td>
+                    <td></td>
+                </tr>
+                {% endif %}
+                <tr style="border-top: 2px solid #e2e8f0; font-size: 1.15rem; font-weight: 800;">
+                    <td>Net Salary Payout</td>
+                    <td style="text-align: right; color: #3b82f6;">{{ payslip.net_salary }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="payslip-actions no-print" style="margin-top: 2rem;">
+        <a href="{% url 'admin_dashboard' %}?tab=payroll" class="btn-print-pdf" style="background: #e2e8f0; color: #475569;">
+            Back to Dashboard
+        </a>
+        <button class="btn-print-pdf" onclick="window.print()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect width="12" height="8" x="6" y="14" />
+            </svg>
+            Print / Save as PDF
+        </button>
+    </div>
+</div>
+{% endblock %}

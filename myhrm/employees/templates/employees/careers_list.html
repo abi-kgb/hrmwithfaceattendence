@@ -1,0 +1,323 @@
+{% extends 'employees/base.html' %}
+
+{% block title %}Careers | Creative Tech{% endblock %}
+
+{% block extra_head %}
+<style>
+    .careers-header {
+        background: linear-gradient(135deg, #eff6ff 0%, var(--bg-secondary) 50%, var(--bg) 100%);
+        color: var(--text-main);
+        padding: 3rem 2rem;
+        border-radius: 1rem;
+        text-align: center;
+        margin-bottom: 2.5rem;
+        box-shadow: var(--shadow-md), 0 0 0 1px rgba(0, 85, 255, 0.12);
+        border: 1px solid var(--border);
+    }
+
+    .careers-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+    }
+
+    .careers-header p {
+        color: var(--warning);
+        font-size: 1.1rem;
+    }
+
+    .jobs-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .job-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        padding: 2rem;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s, box-shadow 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .job-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .job-details h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 0.5rem;
+    }
+
+    .job-meta {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+
+    .job-meta span {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .job-desc {
+        font-size: 0.95rem;
+        color: var(--text-main);
+        line-height: 1.6;
+    }
+
+    .btn-apply {
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: background-color 0.2s;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .btn-apply:hover {
+        background-color: var(--primary-hover);
+    }
+
+    .empty-jobs {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-muted);
+    }
+
+    /* Interactive Application Modal Overlay */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        padding: 1rem;
+    }
+
+    .modal-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        box-shadow: var(--shadow-lg);
+        width: 100%;
+        max-width: 600px;
+        padding: 2.25rem;
+        position: relative;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    
+
+    
+
+    .modal-close {
+        position: absolute;
+        top: 1rem;
+        right: 1.25rem;
+        font-size: 1.8rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        background: none;
+        border: none;
+        line-height: 1;
+    }
+
+    .modal-close:hover {
+        color: var(--text-main);
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+        text-align: left;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.4rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        font-size: 0.9rem;
+        background-color: var(--bg);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        background-color: var(--card-bg);
+    }
+
+    textarea.form-control {
+        resize: vertical;
+    }
+
+    .btn-submit-app {
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        width: 100%;
+        padding: 0.85rem;
+        border-radius: 0.5rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+        margin-top: 0.5rem;
+    }
+
+    .btn-submit-app:hover {
+        background-color: var(--primary-hover);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+    <!-- Public Careers Header -->
+    <div class="careers-header">
+        <h1>Work at Creative Tech</h1>
+        <p>Build the future of technology with us. Explore our open roles.</p>
+    </div>
+
+    <!-- Active Jobs -->
+    <div class="jobs-list">
+        {% if jobs %}
+            {% for job in jobs %}
+                <div class="job-card">
+                    <div class="job-details" style="padding-right: 1.5rem;">
+                        <h2>{{ job.title }}</h2>
+                        <div class="job-meta">
+                            <span>📍 {{ job.location }}</span>
+                            {% if job.salary_range %}
+                                <span>💰 {{ job.salary_range }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="job-desc">
+                            <strong style="display:block; margin-bottom: 0.25rem; font-size:0.9rem;">Job Description:</strong>
+                            <p style="margin-bottom: 1rem;">{{ job.description }}</p>
+                            
+                            <strong style="display:block; margin-bottom: 0.25rem; font-size:0.9rem;">Requirements:</strong>
+                            <p>{{ job.requirements }}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <button type="button" class="btn-apply" onclick="openApplyModal('{{ job.id }}', '{{ job.title }}', '{{ job.location }}')">
+                            Apply Now
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="card empty-jobs">
+                <p style="font-size: 1.2rem; font-weight: 500; margin-bottom: 0.5rem;">No Open Positions Right Now</p>
+                <p style="font-size: 0.9rem;">Please check back later or send an open application to hr@creativetech.com.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Sliding Overlay Application Modal -->
+<div id="apply-modal" class="modal-overlay" onclick="closeApplyModalOnOutsideClick(event)">
+    <div class="modal-card">
+        <button type="button" class="modal-close" onclick="closeApplyModal()">&times;</button>
+        
+        <h2 id="modal-job-title" style="font-size: 1.6rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">Apply for Position</h2>
+        <p id="modal-job-meta" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;"></p>
+        
+        <form id="apply-form" method="POST" action="{% url 'careers_list' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="job_id" id="modal-job-id">
+
+            <div class="form-group">
+                <label for="candidate_name" class="form-label">Full Name</label>
+                <input type="text" name="candidate_name" id="candidate_name" class="form-control" required placeholder="Jane Doe">
+            </div>
+
+            <div class="responsive-grid-half">
+                <div class="form-group">
+                    <label for="candidate_email" class="form-label">Email Address</label>
+                    <input type="email" name="candidate_email" id="candidate_email" class="form-control" required placeholder="jane.doe@gmail.com">
+                </div>
+                <div class="form-group">
+                    <label for="candidate_phone" class="form-label">Phone Number</label>
+                    <input type="text" name="candidate_phone" id="candidate_phone" class="form-control" required placeholder="+1 555-0155">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="resume_pdf" class="form-label">Upload Resume (PDF only)</label>
+                <input type="file" name="resume_pdf" id="resume_pdf" class="form-control" accept=".pdf" required>
+            </div>
+
+            <div class="form-group">
+                <label for="cover_letter" class="form-label">Cover Letter</label>
+                <textarea name="cover_letter" id="cover_letter" rows="4" class="form-control" required placeholder="Briefly introduce yourself and why you're a fit..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-submit-app">Submit Application</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Control JavaScript -->
+<script>
+    function openApplyModal(jobId, jobTitle, jobLocation) {
+        document.getElementById('modal-job-id').value = jobId;
+        document.getElementById('modal-job-title').innerText = 'Apply for ' + jobTitle;
+        document.getElementById('modal-job-meta').innerText = '📍 ' + jobLocation;
+        
+        // Show modal
+        document.getElementById('apply-modal').style.display = 'flex';
+        // Add class to body to prevent scrolling when modal is open
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeApplyModal() {
+        document.getElementById('apply-modal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+        document.getElementById('apply-form').reset();
+    }
+
+    function closeApplyModalOnOutsideClick(event) {
+        if (event.target.id === 'apply-modal') {
+            closeApplyModal();
+        }
+    }
+</script>
+{% endblock %}
+

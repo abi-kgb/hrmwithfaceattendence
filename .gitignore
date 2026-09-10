@@ -1,0 +1,22 @@
+# Virtual Environments
+venv/
+venv*/
+env/
+.venv/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pkl
+face/users/representations_arcface.pkl
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Database locks / temp journals
+*.sqlite3-journal
+*.db-journal

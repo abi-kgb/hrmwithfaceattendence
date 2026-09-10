@@ -1,0 +1,153 @@
+{% extends 'employees/base.html' %}
+{% block title %}Project Detail | {{ project.name }} | Creative Tech HRM{% endblock %}
+{% block page_title %}Project Discussion{% endblock %}
+{% block page_subtitle %}View project status and discuss with the team and client for {{ project.name }}.{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:1.5rem;">
+    <a href="{% url 'employee_dashboard' %}" style="display:inline-flex;align-items:center;gap:0.5rem;color:var(--primary);font-weight:700;text-decoration:none;font-size:0.9rem;">
+        ⬅ Back to Dashboard
+    </a>
+</div>
+
+<div class="responsive-grid-detail">
+
+    <!-- Left Column: Project Details -->
+    <div style="display:flex;flex-direction:column;gap:1.5rem;position:sticky;top:1.5rem;">
+        
+        <!-- Project Info Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">🚀 Project Overview</h2>
+            </div>
+            <div class="card-body">
+                <div style="margin-bottom:1.25rem;">
+                    <h3 style="font-size:1.15rem;font-weight:900;color:var(--text-main);margin-bottom:0.35rem;">{{ project.name }}</h3>
+                    <p style="color:var(--text-muted);font-size:0.82rem;line-height:1.45;">{{ project.description|default:"No description provided." }}</p>
+                </div>
+
+                <div style="border-top:1px solid var(--border);padding-top:1rem;margin-bottom:1.25rem;display:flex;flex-direction:column;gap:0.75rem;font-size:0.85rem;">
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-muted);font-weight:600;">Client:</span>
+                        {% if project.client %}
+                        <strong style="color:var(--text-main);">{{ project.client.company_name }}</strong>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-style:italic;">Internal Project</span>
+                        {% endif %}
+                    </div>
+                    {% if project.client %}
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-muted);font-weight:600;">Contact:</span>
+                        <span style="color:var(--text-main);">{{ project.client.contact_person }}</span>
+                    </div>
+                    {% endif %}
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="color:var(--text-muted);font-weight:600;">Deadline:</span>
+                        <strong style="color:var(--text-main);">{{ project.deadline|default:"No deadline set" }}</strong>
+                    </div>
+                </div>
+
+                <!-- Current Progress & Status -->
+                <div style="background:var(--bg);border:1px solid var(--border);border-radius:0.75rem;padding:0.85rem 1rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;font-size:0.82rem;">
+                        <span style="color:var(--text-muted);font-weight:700;">Status</span>
+                        <span class="badge badge-{{ project.status }}">{{ project.status }}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.65rem;">
+                        <div class="progress-bar-wrap" style="flex:1; background: var(--border); border-radius: 1rem; height: 8px; overflow: hidden;">
+                            <div class="progress-bar-fill" style="width:{{ project.progress }}%; background: var(--primary); height: 100%;"></div>
+                        </div>
+                        <span style="font-size:0.75rem;font-weight:800;color:var(--primary);min-width:30px;">{{ project.progress }}%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Project Team Card -->
+        <div class="card" style="margin-top: 1.5rem;">
+            <div class="card-header">
+                <h2 class="card-title">👥 Project Team</h2>
+            </div>
+            <div class="card-body">
+                {% if project.assigned_employees.all %}
+                <ul style="list-style: none; padding: 0; margin-bottom: 0;">
+                    {% for emp in project.assigned_employees.all %}
+                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border);">
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">{{ emp.user.get_full_name }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ emp.department }}</div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                    No employees assigned yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Discussion & Updates -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">💬 Updates &amp; Feedback Thread</h2>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:1.5rem;">
+            
+            <!-- Message Feed -->
+            <div style="display:flex;flex-direction:column;gap:1.15rem;max-height:500px;overflow-y:auto;padding-right:0.5rem;border-bottom:1px solid var(--border);padding-bottom:1.5rem;">
+                {% for update in updates %}
+                <div style="display:flex;flex-direction:column;{% if update.author == request.user %}align-items:flex-end;{% else %}align-items:flex-start;{% endif %}">
+                    <div style="max-width:85%;border-radius:1rem;padding:0.85rem 1.15rem;font-size:0.88rem;line-height:1.45;
+                                {% if update.author == request.user %}
+                                background:linear-gradient(135deg,var(--primary),#3377ff);color:var(--card-bg);border-bottom-right-radius:0.25rem;
+                                {% elif update.is_admin %}
+                                background:var(--card-bg);color:var(--text-main);border:1.5px solid var(--border);border-bottom-left-radius:0.25rem;border-left:4px solid var(--primary);
+                                {% else %}
+                                background:var(--card-bg);color:var(--text-main);border:1.5px solid var(--border);border-bottom-left-radius:0.25rem;
+                                {% endif %}">
+                        <div style="font-weight:800;font-size:0.75rem;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.4rem;{% if update.author == request.user %}color:rgba(255,255,255,0.85);{% else %}color:var(--text-muted);{% endif %}">
+                            <span>
+                                {% if update.author == request.user %}
+                                    You
+                                {% elif update.is_admin %}
+                                    ⚡ Admin ({{ update.author.first_name }})
+                                {% elif update.author.client_profile %}
+                                    🤝 Client ({{ update.author.first_name }})
+                                {% else %}
+                                    👤 {{ update.author.first_name }}
+                                {% endif %}
+                            </span>
+                            <span>&bull;</span>
+                            <span>{{ update.created_at|date:"M d, Y H:i" }}</span>
+                        </div>
+                        <div style="white-space:pre-wrap;">{{ update.message }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <div style="text-align:center;color:var(--text-muted);padding:4rem 2rem;font-size:0.9rem;">
+                    📢 No daily updates posted yet. Submit the form below to post a daily status update.
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Post New Update Form -->
+            <div>
+                <h3 style="font-size:0.95rem;font-weight:800;color:var(--text-main);margin-bottom:0.75rem;">📝 Post Message</h3>
+                <form method="post" class="admin-form">
+                    {% csrf_token %}
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                        <textarea name="message" rows="4" placeholder="Write a status update or reply..." required style="background:var(--card-bg);border:1.5px solid var(--border); width: 100%; padding: 0.75rem; border-radius: 0.5rem;"></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit" style="padding: 0.5rem 1rem; border: none; background: var(--primary); color: white; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">Post Update</button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

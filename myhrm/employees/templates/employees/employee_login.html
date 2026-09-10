@@ -1,0 +1,211 @@
+{% extends 'employees/base.html' %}
+{% load static %}
+
+{% block title %}Sign In | Creative Tech HRM{% endblock %}
+
+{% block extra_head %}
+<style>
+    .login-wrapper {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+
+    .simple-login-card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--card-bg, #ffffff);
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.07);
+        border: 1px solid var(--border, #e2e8f0);
+        padding: 2.5rem 2rem;
+        text-align: center;
+    }
+
+    .login-logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .login-logo img {
+        height: 38px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    .login-logo-text {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--text-main, #1e293b);
+        letter-spacing: -0.02em;
+    }
+
+    .login-logo-text span {
+        color: var(--primary, #2563eb);
+    }
+
+    .login-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-main, #0f172a);
+        margin-bottom: 0.3rem;
+    }
+
+    .login-subtitle {
+        font-size: 0.88rem;
+        color: var(--text-muted, #64748b);
+        margin-bottom: 1.75rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.2rem;
+        text-align: left;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-main, #334155);
+        margin-bottom: 0.4rem;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.4rem;
+        background: var(--bg, #f8fafc);
+        border: 1px solid var(--border, #cbd5e1);
+        border-radius: 0.5rem;
+        font-size: 0.92rem;
+        color: var(--text-main, #0f172a);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary, #2563eb);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        background: #ffffff;
+    }
+
+    .input-icon {
+        position: absolute;
+        left: 0.8rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted, #94a3b8);
+        display: flex;
+        align-items: center;
+    }
+
+    .btn-submit {
+        width: 100%;
+        padding: 0.8rem;
+        border-radius: 0.5rem;
+        background: var(--primary, #2563eb);
+        color: #ffffff;
+        border: none;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s;
+        margin-top: 0.5rem;
+    }
+
+    .btn-submit:hover {
+        background: #1d4ed8;
+    }
+
+    .login-footer {
+        margin-top: 1.5rem;
+        font-size: 0.85rem;
+        color: var(--text-muted, #64748b);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .login-footer a {
+        color: var(--primary, #2563eb);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .login-footer a:hover {
+        text-decoration: underline;
+    }
+
+    .session-badge {
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.85rem;
+        color: var(--text-main);
+        text-align: left;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="simple-login-card">
+        <div class="login-logo">
+            <img src="{% static 'employees/logo.png' %}" alt="Logo" onerror="this.style.display='none'">
+            <div class="login-logo-text">Creative<span>Tech</span></div>
+        </div>
+
+        <h2 class="login-title">Sign In</h2>
+        <p class="login-subtitle">Enter your details to access your account</p>
+
+        {% if request.user.is_authenticated %}
+        <div class="session-badge">
+            👤 Logged in as <strong>{{ request.user.username }}</strong>
+            <div style="margin-top: 0.3rem;">
+                <a href="{% if request.user.is_superuser or request.user.is_staff or request.user.employee.is_company_admin %}{% url 'admin_dashboard' %}{% else %}{% url 'employee_dashboard' %}{% endif %}">Dashboard →</a>
+                <span style="margin: 0 0.4rem; color: #cbd5e1;">|</span>
+                <a href="{% url 'logout' %}" style="color: #ef4444;">Sign Out</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{% url 'employee_login' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input type="text" name="username" id="username" class="form-control" placeholder="Enter username" required autocomplete="username">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </span>
+                    <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required autocomplete="current-password">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Sign In</button>
+
+            <div class="login-footer">
+                <a href="{% url 'forgot_password' %}">Forgot password?</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

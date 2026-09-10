@@ -1,0 +1,273 @@
+{% extends 'employees/admin_base.html' %}
+{% block title %}Projects | Creative Tech HRM{% endblock %}
+{% block page_title %}Projects{% endblock %}
+{% block page_subtitle %}Manage projects and track progress for your clients.{% endblock %}
+{% block nav_projects %}active{% endblock %}
+
+{% block admin_extra_head %}
+<style>
+    /* Modal Backdrop */
+    .modal-backdrop {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    /* Modal Container */
+    .modal-content-wrap {
+        padding: 2rem;
+        background: var(--card-bg);
+        border-radius: 1.25rem;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+        border: 1px solid var(--border);
+        overflow-y: auto;
+        max-height: 90vh;
+    }
+    
+    
+</style>
+{% endblock %}
+
+{% block admin_content %}
+<div>
+
+    <!-- Projects Table -->
+    <div class="card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 class="card-title">🚀 All Projects ({{ projects|length }})</h2>
+            <button onclick="openAddProjectModal()" class="btn-submit" style="padding:0.45rem 1rem; font-size:0.82rem; display:flex; align-items:center; gap:0.4rem;">
+                ➕ Create Project
+            </button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Project</th>
+                        <th>Client</th>
+                        <th>Deadline</th>
+                        <th>Progress</th>
+                        <th>Status</th>
+                        <th>Discussion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in projects %}
+                    <tr>
+                        <td style="color:var(--text-muted);font-weight:700;">{{ forloop.counter }}</td>
+                        <td>
+                            <div style="font-weight:700;">{{ project.name }}</div>
+                            {% if project.description %}<div style="font-size:0.75rem;color:var(--text-muted);">{{ project.description|truncatechars:40 }}</div>{% endif %}
+                        </td>
+                        <td>
+                            {% if project.client %}
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#eff6ff,#bfdbfe);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary);font-size:0.7rem;">
+                                    {{ project.client.company_name|first|upper }}
+                                </div>
+                                <span style="font-size:0.85rem;font-weight:600;">{{ project.client.company_name }}</span>
+                            </div>
+                            {% else %}
+                            <span style="color:var(--text-muted);">Internal</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:0.85rem;color:{% if project.deadline %}var(--text-main){% else %}var(--text-muted){% endif %};">
+                            {{ project.deadline|default:"No deadline" }}
+                        </td>
+                        <td style="min-width:120px;">
+                            <div style="display:flex;align-items:center;gap:0.65rem;">
+                                <div class="progress-bar-wrap" style="flex:1;">
+                                    <div class="progress-bar-fill" style="width:{{ project.progress }}%;background:{% if project.progress >= 100 %}linear-gradient(90deg,var(--success),#34d399){% elif project.progress >= 60 %}linear-gradient(90deg,var(--primary),var(--primary-hover)){% else %}linear-gradient(90deg,var(--warning),#fb923c){% endif %};"></div>
+                                </div>
+                                <span style="font-size:0.75rem;font-weight:800;color:var(--primary);min-width:30px;">{{ project.progress }}%</span>
+                            </div>
+                        </td>
+                        <td><span class="badge badge-{{ project.status }}">{{ project.status }}</span></td>
+                        <td>
+                            <a href="{% url 'admin_project_detail' project.id %}" class="btn-submit" style="padding:0.3rem 0.65rem;font-size:0.75rem;background:linear-gradient(135deg,var(--warning),#fb923c);box-shadow:0 4px 12px rgba(249,115,22,0.2);text-decoration:none;white-space:nowrap;">💬 Updates ({{ project.updates.count }})</a>
+                            <button type="button" class="btn-submit" onclick="openEditProjectModal('{{ project.id }}', '{{ project.name|escapejs }}', '{{ project.client.id|default:'' }}', '{{ project.deadline|date:'Y-m-d'|default:'' }}', '{{ project.progress }}', '{{ project.status }}', '{{ project.description|escapejs }}')" style="padding:0.3rem 0.65rem;font-size:0.75rem;background:linear-gradient(135deg,var(--primary),var(--primary-hover));box-shadow:0 4px 12px rgba(37,99,235,0.2);margin-left:0.5rem;">✏️ Edit</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:3rem;">No projects created yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Create Project Modal -->
+<div id="addProjectModal" class="modal-backdrop" onclick="closeAddProjectModal()">
+    <div class="modal-content-wrap" onclick="event.stopPropagation()">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 class="card-title">➕ Create Project</h2>
+            <button onclick="closeAddProjectModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted); font-weight:bold;">&times;</button>
+        </div>
+        <div class="card-body">
+            <form method="post" class="admin-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" name="name" placeholder="Website Redesign" required>
+                </div>
+                <div class="form-group">
+                    <label>Client (optional)</label>
+                    <select name="client_id">
+                        <option value="">-- Internal Project --</option>
+                        {% for client in clients %}
+                        <option value="{{ client.id }}">{{ client.company_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Deadline</label>
+                    <input type="date" name="deadline">
+                </div>
+                <div class="form-group">
+                    <label>Initial Progress (%)</label>
+                    <input type="number" id="create_project_progress" name="progress" value="0" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Assign Team Members</label>
+                    <select name="assigned_employees" multiple style="height: 100px;">
+                        {% for emp in all_employees %}
+                            <option value="{{ emp.id }}">{{ emp.user.get_full_name }} ({{ emp.department }})</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status" id="create_project_status">
+                        <option value="Active">Active</option>
+                        <option value="On Hold">On Hold</option>
+                        <option value="Completed" id="create_completed_option" style="display:none;" disabled>Completed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="3" placeholder="Project details..."></textarea>
+                </div>
+                <button type="submit" class="btn-submit" style="width:100%; margin-top:0.5rem;">Create Project</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Project Modal -->
+<div id="editProjectModal" class="modal-backdrop" onclick="closeEditProjectModal()">
+    <div class="modal-content-wrap" onclick="event.stopPropagation()">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 class="card-title">✏️ Edit Project</h2>
+            <button onclick="closeEditProjectModal()" type="button" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted); font-weight:bold;">&times;</button>
+        </div>
+        <div class="card-body">
+            <form id="editProjectForm" method="post" action="" class="admin-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" name="name" id="edit_project_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Client (optional)</label>
+                    <select name="client_id" id="edit_project_client">
+                        <option value="">-- Internal Project --</option>
+                        {% for client in clients %}
+                        <option value="{{ client.id }}">{{ client.company_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Deadline</label>
+                    <input type="date" name="deadline" id="edit_project_deadline">
+                </div>
+                <div class="form-group">
+                    <label>Initial Progress (%)</label>
+                    <input type="number" name="progress" id="edit_project_progress" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Assign Team Members (Select to override)</label>
+                    <select name="assigned_employees" multiple style="height: 100px;">
+                        {% for emp in all_employees %}
+                            <option value="{{ emp.id }}">{{ emp.user.get_full_name }} ({{ emp.department }})</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status" id="edit_project_status">
+                        <option value="Active">Active</option>
+                        <option value="On Hold">On Hold</option>
+                        <option value="Completed" id="edit_completed_option">Completed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" id="edit_project_description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn-submit" style="width:100%; margin-top:0.5rem;">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function triggerProgressUpdate(progressId, optionId, selectId) {
+        const val = parseInt(document.getElementById(progressId).value) || 0;
+        const compOpt = document.getElementById(optionId);
+        const statSel = document.getElementById(selectId);
+        if (compOpt && statSel) {
+            if(val > 95) {
+                compOpt.style.display = 'block';
+                compOpt.disabled = false;
+            } else {
+                compOpt.style.display = 'none';
+                compOpt.disabled = true;
+                if(statSel.value === 'Completed') statSel.value = 'Active';
+            }
+        }
+    }
+
+    document.getElementById('create_project_progress').addEventListener('input', function() {
+        triggerProgressUpdate('create_project_progress', 'create_completed_option', 'create_project_status');
+    });
+
+    document.getElementById('edit_project_progress').addEventListener('input', function() {
+        triggerProgressUpdate('edit_project_progress', 'edit_completed_option', 'edit_project_status');
+    });
+
+    function openAddProjectModal() {
+        document.getElementById('addProjectModal').style.display = 'flex';
+    }
+    function closeAddProjectModal() {
+        document.getElementById('addProjectModal').style.display = 'none';
+    }
+    
+    function openEditProjectModal(id, name, clientId, deadline, progress, status, description) {
+        document.getElementById('editProjectForm').action = "/admin-dashboard/projects/edit/" + id + "/";
+        document.getElementById('edit_project_name').value = name;
+        document.getElementById('edit_project_client').value = clientId;
+        document.getElementById('edit_project_deadline').value = deadline;
+        document.getElementById('edit_project_progress').value = progress;
+        document.getElementById('edit_project_status').value = status;
+        document.getElementById('edit_project_description').value = description;
+        triggerProgressUpdate('edit_project_progress', 'edit_completed_option', 'edit_project_status');
+        if (progress > 95) document.getElementById('edit_project_status').value = status; else document.getElementById('edit_project_status').value = (status === 'Completed' ? 'Active' : status);
+        document.getElementById('editProjectModal').style.display = 'flex';
+    }
+    
+    function closeEditProjectModal() {
+        document.getElementById('editProjectModal').style.display = 'none';
+    }
+</script>
+{% endblock %}

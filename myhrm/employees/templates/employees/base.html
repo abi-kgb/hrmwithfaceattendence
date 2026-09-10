@@ -1,0 +1,532 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Creative Tech HRM - Modern Human Resource Management System">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="HRM Mobile">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="{% static 'employees/logo.png' %}">
+    <title>{% block title %}Creative Tech HRM{% endblock %}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}" onerror="this.onerror=null;">
+    <!-- Google Fonts: Outfit for modern look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register("/sw.js").then(function(reg) {
+                    console.log('PWA ServiceWorker registered');
+                }).catch(function(err) {
+                    console.log('PWA ServiceWorker failed:', err);
+                });
+            });
+        }
+    </script>
+    
+    <style>
+        :root {
+            /* Crisp Blue & White Theme */
+            --bg: #f8fafc;
+            --bg-secondary: #f1f5f9;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --border: rgba(15, 23, 42, 0.08);
+            --border-hover: rgba(15, 23, 42, 0.15);
+            
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --accent: #3b82f6;
+            
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            
+            --radius: 12px;
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box; margin: 0; padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        html, body {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        body {
+            background-color: var(--bg); color: var(--text-main);
+            min-height: 100vh; display: flex; flex-direction: column;
+            background-image: radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.05), transparent 25%),
+                              radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.05), transparent 25%);
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1.5rem; height: 54px;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+
+        /* MOBILE ONLY: push navbar below phone status bar */
+        .mobile-menu-btn { display: none; }
+        @media (max-width: 992px) {
+            .mobile-menu-btn { display: inline-block !important; }
+        }
+        @media (max-width: 768px) {
+            .navbar {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                padding: 60px 1rem 0 1rem !important;
+                height: 120px !important;
+                z-index: 9999 !important;
+            }
+            body.auth-body {
+                padding-top: 120px !important;
+            }
+        }
+
+        .navbar-brand {
+            font-size: 1.3rem; font-weight: 700;
+            display: flex; align-items: center; gap: 0.75rem;
+            text-decoration: none; color: var(--text-main);
+        }
+
+        .navbar-brand span {
+            color: var(--primary); font-weight: 800;
+        }
+
+        .navbar-nav {
+            display: flex; flex-direction: row !important; align-items: center; gap: 1.5rem;
+        }
+
+        .user-badge {
+            background: rgba(15, 23, 42, 0.03);
+            border: 1px solid var(--border);
+            padding: 0.35rem 1rem 0.35rem 0.35rem;
+            border-radius: 9999px; font-size: 0.85rem; font-weight: 500;
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+
+        .user-badge-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: var(--card-bg); display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700;
+        }
+
+        .role-chip {
+            background: rgba(56, 189, 248, 0.15); color: var(--primary);
+            font-size: 0.7rem; font-weight: 600; padding: 0.15rem 0.5rem;
+            border-radius: 9999px; letter-spacing: 0.05em; text-transform: uppercase;
+        }
+
+        .btn-logout {
+            color: var(--text-muted); text-decoration: none;
+            font-size: 0.85rem; font-weight: 500; transition: color 0.2s;
+            display: flex; align-items: center; height: 100%;
+        }
+        .btn-logout:hover { color: var(--text-main); }
+        .mobile-only-logout { display: none !important; }
+
+        .container, .container-fluid {
+            max-width: 1400px; width: 100%; margin: 1.5rem auto 2rem auto; padding: 1rem 1.5rem 0 1.5rem; flex-grow: 1;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Cards */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1.5rem;
+            box-shadow: var(--shadow-md); margin-bottom: 1.5rem;
+            transition: border-color 0.3s ease;
+        }
+        .card:hover { border-color: var(--border-hover); }
+
+        .card-header { margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); letter-spacing: 0.02em; margin: 0; }
+        .card-body { padding: 0; }
+
+        /* Tables */
+        .table-container, .table-responsive {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+            max-width: 100%;
+            margin-bottom: 1rem;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left; }
+        th { padding: 1rem; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); background: rgba(15, 23, 42, 0.02); }
+        td { padding: 1rem; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tbody tr { transition: background 0.2s; }
+        tbody tr:hover { background: rgba(15, 23, 42, 0.03); }
+
+        /* Forms */
+        label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--text-muted); }
+        input, select, textarea {
+            width: 100%; padding: 0.65rem 1rem;
+            background: #ffffff; border: 1.5px solid #64748b;
+            border-radius: 8px; font-size: 0.9rem; color: var(--text-main);
+            transition: all 0.2s; font-family: 'Outfit', sans-serif;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none; border-color: var(--primary); background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
+        
+        /* Buttons */
+        .btn-submit, .btn-submit-leave, .btn-action-submit, .btn-approve {
+            background: var(--primary); color: #ffffff; border: none;
+            padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+            cursor: pointer; transition: all 0.2s; display: inline-block; text-decoration: none; text-align: center;
+        }
+        .btn-submit:hover, .btn-submit-leave:hover, .btn-action-submit:hover, .btn-approve:hover {
+            background: var(--primary-hover); transform: translateY(-1px);
+        }
+        .btn-danger, .btn-reject {
+            background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-block; text-align: center;
+        }
+        .btn-danger:hover, .btn-reject:hover { background: rgba(239, 68, 68, 0.2); }
+
+        /* Badges */
+        .badge { font-size: 0.75rem; font-weight: 500; padding: 0.25rem 0.6rem; border-radius: 9999px; display: inline-block; border: 1px solid transparent; }
+        .badge-Pending, .badge-On\ Hold { background-color: var(--warning-bg); color: var(--warning); border-color: rgba(245, 158, 11, 0.2); }
+        .badge-Approved, .badge-Active, .badge-Completed, .badge-Hired { background-color: var(--success-bg); color: var(--success); border-color: rgba(16, 185, 129, 0.2); }
+        .badge-Rejected, .badge-Inactive { background-color: var(--danger-bg); color: var(--danger); border-color: rgba(239, 68, 68, 0.2); }
+        .badge-Applied, .badge-Shortlisted, .badge-Interviewing, .badge-Offered { background-color: rgba(56, 189, 248, 0.1); color: var(--primary); border-color: rgba(56, 189, 248, 0.2); }
+        .badge-admin { background-color: rgba(129, 140, 248, 0.1); color: var(--accent); border-color: rgba(129, 140, 248, 0.2); }
+
+        footer { text-align: center; padding: 2rem; font-size: 0.85rem; color: var(--text-muted); margin-top: auto; border-top: 1px solid var(--border); }
+        footer a { color: var(--primary); text-decoration: none; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.2); }
+
+        /* Toasts */
+        .messages { position: fixed; top: 80px; right: 1.5rem; z-index: 999; display: flex; flex-direction: column; gap: 0.5rem; width: 350px; }
+        .alert { padding: 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; border: 1px solid var(--border); background: var(--bg-secondary); box-shadow: var(--shadow-lg); cursor: pointer; transition: opacity 0.3s; }
+        .alert-success { border-left: 4px solid var(--success); }
+        .alert-error, .alert-danger { border-left: 4px solid var(--danger); }
+    
+        .responsive-grid-detail {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        .responsive-grid-half {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 992px) {
+            .admin-layout { grid-template-columns: 1fr; }
+            .admin-grid { grid-template-columns: 1fr !important; }
+            .container, .container-fluid { padding-top: 1.5rem; margin-top: 0.5rem; }
+        /* Sidebar Menu Slide-Out Drawer Global Rules */
+        .sidebar-menu {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 280px !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            background: #ffffff !important;
+            border-right: 1px solid var(--border, #cbd5e1) !important;
+            z-index: 99999 !important;
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s ease-in-out !important;
+            box-shadow: 5px 0 25px rgba(0,0,0,0.2) !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding: 1.5rem 1rem 5rem 1rem !important;
+        }
+
+        .sidebar-menu.active {
+            transform: translateX(0) !important;
+        }
+        @media (max-width: 768px) {
+            .btn-logout { display: none !important; }
+            .mobile-only-logout { display: flex !important; }
+            .stats-grid, .grid-cards, .responsive-grid-detail, .responsive-grid-half { grid-template-columns: 1fr !important; }
+            .page-hero { flex-direction: column; align-items: flex-start; gap: 0.5rem; padding-top: 0.75rem; }
+            .hero-time-wrapper { text-align: left; margin-top: 0.25rem; width: 100%; }
+            .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; margin-bottom: 1rem; }
+            table { min-width: 650px; }
+            .navbar { padding: 0.85rem 1rem 0.5rem 1rem !important; height: auto; min-height: 56px; gap: 0.5rem; }
+            .navbar-brand { font-size: 1.05rem; }
+            .navbar-nav { gap: 0.5rem; flex-wrap: wrap; }
+            .user-badge { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+            .profile-card { flex-direction: column; text-align: center; }
+            .tab-buttons { flex-wrap: wrap; }
+            .tab-button { flex: 1 1 100%; text-align: center; justify-content: center; margin-bottom: 0.5rem; }
+            .page-content { padding: 0; }
+            .container, .container-fluid { padding: 0.75rem 0.75rem 2rem 0.75rem !important; margin-top: 0 !important; }
+            .card { padding: 1.15rem; margin-bottom: 1rem; }
+        }
+        @media (max-width: 480px) {
+            .navbar { padding: 0.95rem 0.75rem 0.5rem 0.75rem !important; }
+            .container, .container-fluid { padding-top: 0.75rem !important; margin-top: 0 !important; }
+            .page-hero { padding-top: 0.25rem !important; margin-bottom: 1rem !important; }
+            .hero-time-wrapper { text-align: left; font-size: 0.85rem; }
+            .btn-action, .fab-add { font-size: 0.8rem; padding: 0.5rem; }
+            h1, h2 { font-size: 1.25rem !important; }
+            .modal-card, .modal-content-wrap { width: 95%; padding: 1rem; margin: 1rem auto; }
+            .modal-content { padding: 0.5rem; }
+            .role-chip { display: none; }
+            .navbar-brand span { display: none; }
+            .btn-logout { font-size: 0.78rem; }
+            .btn-submit, .btn-submit-leave, .btn-action-submit, .btn-approve { width: 100%; }
+            .messages { right: 0.5rem; width: calc(100% - 1rem); }
+        }
+
+        /* FullCalendar Global Responsiveness */
+        .fc { width: 100% !important; max-width: 100% !important; }
+        .fc-toolbar { flex-wrap: wrap !important; gap: 0.5rem !important; }
+        .fc-toolbar-chunk { display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 0.25rem !important; }
+        @media (max-width: 768px) {
+            .fc-toolbar { flex-direction: column !important; align-items: center !important; text-align: center !important; gap: 0.5rem !important; }
+            .fc-toolbar-title { font-size: 1.1rem !important; margin: 0.25rem 0 !important; }
+            .fc-button { padding: 0.35rem 0.65rem !important; font-size: 0.75rem !important; }
+            .fc-col-header-cell-cushion { font-size: 0.72rem !important; padding: 2px 0 !important; }
+            .fc-daygrid-day-number { font-size: 0.72rem !important; padding: 2px 4px !important; }
+            .fc-event-title { font-size: 0.68rem !important; }
+            .fc-daygrid-day-frame { min-height: 38px !important; }
+            .fc-view-harness { overflow-x: auto !important; -webkit-overflow-scrolling: touch; max-height: 360px !important; }
+            .fc { max-height: 390px !important; }
+        }
+        @keyframes ptrSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% if request.user.is_authenticated %}auth-body{% endif %}">
+    <!-- Pull To Refresh UI Indicator -->
+    <div id="pullToRefreshIndicator" style="position: fixed; top: -60px; left: 50%; transform: translateX(-50%); z-index: 9999; background: var(--card-bg, #ffffff); border: 1px solid var(--border, #e2e8f0); border-radius: 9999px; padding: 0.5rem 1rem; box-shadow: 0 4px 14px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 0.5rem; transition: top 0.2s ease, transform 0.2s ease; pointer-events: none;">
+        <div id="ptrSpinner" style="width: 18px; height: 18px; border: 2.5px solid #cbd5e1; border-top-color: var(--primary, #2563eb); border-radius: 50%; transition: transform 0.1s linear;"></div>
+        <span id="ptrText" style="font-size: 0.8rem; font-weight: 600; color: var(--text-main, #0f172a);">Pull to refresh</span>
+    </div>
+    {% if request.user.is_authenticated %}
+    <header class="navbar">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <button id="mobileMenuToggle" class="mobile-menu-btn" onclick="toggleSidebarMenu(event)" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-main); padding: 0 0.3rem;" title="Toggle Menu">
+                ☰
+            </button>
+            <a href="{% url 'home' %}" class="navbar-brand">
+                Creative<span>Tech</span> HRM
+            </a>
+        </div>
+        <div class="navbar-nav">
+            <!-- Notifications Dropdown -->
+            <div style="position: relative; display: flex; align-items: center;" id="notificationContainer">
+                <div id="notificationBell" style="position: relative; cursor: pointer; color: var(--text-muted); transition: color 0.2s; display: flex; align-items: center;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                </div>
+                
+                <!-- Dropdown Menu -->
+                <div id="notificationDropdown" style="display: none; position: absolute; top: 120%; right: 0; width: 300px; background: white; border-radius: 0.75rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border); z-index: 1000; overflow: hidden;">
+                    <div style="padding: 1rem; border-bottom: 1px solid var(--border); background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; font-size: 0.95rem;">Notifications</span>
+                    </div>
+                    <div style="max-height: 350px; overflow-y: auto;">
+                        {% if user_notifications %}
+                            {% for notif in user_notifications %}
+                            <div style="padding: 1rem; border-bottom: 1px solid var(--border); {% if not notif.is_read %}background: #f0f9ff;{% endif %}">
+                                <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.25rem;">{{ notif.title }}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ notif.message }}</div>
+                                <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.5rem;">{{ notif.created_at|timesince }} ago</div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div style="padding: 2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                                No recent notifications
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <a href="{% url 'logout' %}" class="btn-logout">Sign Out</a>
+        </div>
+    </header>
+    {% endif %}
+
+    <main class="container">
+        {% if messages %}
+            <ul class="messages" id="toast-container">
+                {% for message in messages %}
+                    <li class="alert alert-{{ message.tags }}" onclick="this.remove()">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        &copy; 2026 <a href="{% url 'home' %}">Creative Tech</a>. All rights reserved. &mdash; Premium HRM System
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toasts = document.querySelectorAll('#toast-container .alert');
+            toasts.forEach(function(toast, index) {
+                setTimeout(function() {
+                    toast.style.opacity = '0';
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 4000 + (index * 500));
+            });
+
+            // Notification Dropdown Logic
+            const bell = document.getElementById('notificationBell');
+            const dropdown = document.getElementById('notificationDropdown');
+            const badge = document.getElementById('notifBadge');
+            
+            if (bell && dropdown) {
+                bell.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const isHidden = dropdown.style.display === 'none';
+                    dropdown.style.display = isHidden ? 'block' : 'none';
+                    
+                    if (isHidden && badge) {
+                        // Mark as read via AJAX
+                        fetch("{% url 'mark_notifications_read' %}", {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}',
+                                'Content-Type': 'application/json'
+                            }
+                        }).then(response => {
+                            if (response.ok) {
+                                badge.style.display = 'none';
+                            }
+                        });
+                    }
+                });
+
+                document.addEventListener('click', function(e) {
+                    if (!bell.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+            }
+
+            // Global Sidebar Drawer Toggle
+            window.toggleSidebarMenu = function(e) {
+                if (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+                const sidebar = document.querySelector('.sidebar-menu');
+                if (sidebar) {
+                    sidebar.classList.toggle('active');
+                }
+            };
+
+            document.addEventListener('click', function(e) {
+                const sidebar = document.querySelector('.sidebar-menu');
+                const mobileBtn = document.getElementById('mobileMenuToggle');
+                if (sidebar && sidebar.classList.contains('active')) {
+                    if (!sidebar.contains(e.target) && (!mobileBtn || !mobileBtn.contains(e.target))) {
+                        sidebar.classList.remove('active');
+                    }
+                }
+            });
+
+            // Native Touch Pull-To-Refresh Gesture Handler for APK / Mobile Web
+            (function() {
+                let startY = 0;
+                let currentY = 0;
+                let pulling = false;
+                const threshold = 75;
+                const ptr = document.getElementById('pullToRefreshIndicator');
+                const spinner = document.getElementById('ptrSpinner');
+                const ptrText = document.getElementById('ptrText');
+
+                if (!ptr) return;
+
+                window.addEventListener('touchstart', function(e) {
+                    if (window.scrollY <= 2 && e.touches.length === 1) {
+                        startY = e.touches[0].pageY;
+                        pulling = true;
+                    }
+                }, { passive: true });
+
+                window.addEventListener('touchmove', function(e) {
+                    if (!pulling) return;
+                    currentY = e.touches[0].pageY;
+                    const diff = currentY - startY;
+
+                    if (diff > 10 && window.scrollY <= 2) {
+                        const pullDistance = Math.min(diff * 0.45, 85);
+                        ptr.style.top = (pullDistance - 50) + 'px';
+                        const rotation = Math.min((diff / threshold) * 360, 360);
+                        spinner.style.transform = 'rotate(' + rotation + 'deg)';
+
+                        if (diff >= threshold) {
+                            ptrText.textContent = 'Release to refresh';
+                        } else {
+                            ptrText.textContent = 'Pull to refresh';
+                        }
+                    }
+                }, { passive: true });
+
+                window.addEventListener('touchend', function(e) {
+                    if (!pulling) return;
+                    const diff = currentY - startY;
+                    pulling = false;
+
+                    if (diff >= threshold && window.scrollY <= 2) {
+                        ptr.style.top = '16px';
+                        ptrText.textContent = 'Refreshing...';
+                        spinner.style.animation = 'ptrSpin 0.8s linear infinite';
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 250);
+                    } else {
+                        ptr.style.top = '-60px';
+                    }
+                    startY = 0;
+                    currentY = 0;
+                }, { passive: true });
+            })();
+        });
+    </script>
+    <!-- Bootstrap 5 JavaScript Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/bootstrap.min.js' %}" onerror="this.onerror=null;"></script>
+</body>
+</html>

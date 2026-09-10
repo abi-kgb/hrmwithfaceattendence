@@ -1,0 +1,29 @@
+{% extends 'employees/base.html' %}
+
+{% block title %}Reports | Creative Tech HRM{% endblock %}
+
+{% block content %}
+<div style="padding:2rem;">
+    <h1>Reports</h1>
+    <h3>Attendance Summary</h3>
+    <ul>
+        {% for status, count in attendance_summary.items %}
+        <li>{{ status }}: {{ count }}</li>
+        {% empty %}
+        <li>No attendance records.</li>
+        {% endfor %}
+    </ul>
+
+    <h3>Leave Summary</h3>
+    <ul>
+        {% for lt, count in leave_summary.items %}
+        <li>{{ lt }}: {{ count }}</li>
+        {% empty %}
+        <li>No leave records.</li>
+        {% endfor %}
+    </ul>
+
+    <h3>Payroll Total</h3>
+    <p>Total net payouts: ${{ payroll_total }}</p>
+</div>
+{% endblock %}

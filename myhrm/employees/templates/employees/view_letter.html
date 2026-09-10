@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ letter.title }} - {{ letter.reference_number }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        body { background: #f1f5f9; color: #1e293b; display: flex; flex-direction: column; align-items: center; padding: 2rem; min-height: 100vh; }
+        
+        .action-bar {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            background: #ffffff;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37,99,235,0.3); }
+        .btn-secondary { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; }
+        .btn-secondary:hover { background: #f1f5f9; }
+
+        /* Letterhead Container */
+        .document-page {
+            width: 100%;
+            max-width: 800px;
+            background: #ffffff;
+            padding: 4rem 4.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+            position: relative;
+            min-height: 1000px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .letterhead-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        .brand-title { font-size: 1.8rem; font-weight: 900; color: #0f172a; letter-spacing: -0.03em; }
+        .brand-title span { color: #2563eb; }
+        .brand-subtitle { font-size: 0.8rem; color: #64748b; font-weight: 500; margin-top: 0.2rem; }
+        
+        .company-contact { text-align: right; font-size: 0.8rem; color: #64748b; line-height: 1.4; }
+
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 2.5rem;
+            background: #f8fafc;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #f1f5f9;
+        }
+
+        .letter-content {
+            font-size: 1rem;
+            line-height: 1.8;
+            color: #334155;
+            flex: 1;
+        }
+        .letter-content p { margin-bottom: 1.25rem; }
+
+        .signatory-section {
+            margin-top: 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 2rem;
+        }
+
+        .signatory-info { font-size: 0.9rem; }
+        .signatory-name { font-weight: 800; color: #0f172a; }
+        .signatory-title { font-size: 0.85rem; color: #64748b; }
+        .company-name { font-size: 0.8rem; color: #2563eb; font-weight: 700; margin-top: 0.25rem; }
+
+        .seal-stamp {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 2px dashed #93c5fd;
+            background: rgba(239, 246, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2563eb;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transform: rotate(-10deg);
+        }
+
+        /* PRINT STYLES */
+        @media print {
+            body { background: white; padding: 0; }
+            .action-bar { display: none !important; }
+            .document-page { box-shadow: none; border: none; padding: 2rem 3rem; width: 100%; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Action Bar -->
+    <div class="action-bar">
+        <div>
+            <a href="javascript:history.back()" class="btn btn-secondary">← Back to Dashboard</a>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <button onclick="window.print()" class="btn btn-primary">🖨️ Print / Save as PDF</button>
+        </div>
+    </div>
+
+    <!-- Letterhead Page -->
+    <div class="document-page">
+        <!-- Header -->
+        <div class="letterhead-header">
+            <div>
+                <div class="brand-title">CREATIVETECH<span>SOLUTIONS</span></div>
+                <div class="brand-subtitle">Innovating Enterprise Human Resource Systems</div>
+            </div>
+            <div class="company-contact">
+                <div>CreativeTech Towers, Tech Park</div>
+                <div>support@creativetech.com</div>
+                <div>www.creativetech.com</div>
+            </div>
+        </div>
+
+        <!-- Meta -->
+        <div class="meta-row">
+            <div>REF: <span style="color: #0f172a;">{{ letter.reference_number }}</span></div>
+            <div>DATE: <span style="color: #0f172a;">{{ letter.issue_date|date:"F d, Y" }}</span></div>
+        </div>
+
+        <!-- Content -->
+        <div class="letter-content">
+            {{ letter.content|safe }}
+        </div>
+
+        <!-- Signatory -->
+        <div class="signatory-section">
+            <div class="signatory-info">
+                <div class="signatory-name">{{ letter.signatory_name }}</div>
+                <div class="signatory-title">{{ letter.signatory_title }}</div>
+                <div class="company-name">CreativeTech Solutions Inc.</div>
+            </div>
+            <div class="seal-stamp">
+                OFFICIAL<br>HR SEAL
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
