@@ -21,8 +21,8 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 USERS_DIR = "users"
-COOLDOWN_MINUTES = 5.0  # 5 minutes cooldown before logout prompt can appear
-REQUIRED_HOLD_DURATION = 3.0  # 3 seconds continuous gaze required for attendance
+COOLDOWN_MINUTES = 0.25  # 15 seconds cooldown anti-bounce
+REQUIRED_HOLD_DURATION = 1.2  # 1.2 seconds continuous gaze required for attendance
 
 # Try importing MediaPipe for 3D Iris & Head Mesh Tracking
 try:
@@ -114,17 +114,25 @@ def get_strict_match(df):
     dist_col = next((c for c in df.columns if 'distance' in c.lower() or 'cosine' in c.lower() or 'arcface' in c.lower()), None)
     
     if dist_col and dist_col in best:
-        dist = best[dist_col]
-        if dist < 0.65:
+        dist = float(best[dist_col])
+        # ArcFace cosine distance threshold: 0.72 allows standard lighting variation
+        if dist < 0.72:
             return best['identity'], dist
+        print(f"[Match Info] Best candidate {best['identity']} distance {dist:.3f} exceeded threshold 0.72")
         return None, dist
             
-    return best['identity'], dist if dist_col else None
+    return best['identity'], 0.0
 
 def init_system():
     database.init_db()
     if not os.path.exists(USERS_DIR):
         os.makedirs(USERS_DIR)
+    try:
+        print("[Init] Pre-warming ArcFace model...")
+        DeepFace.build_model("ArcFace")
+        print("[Init] ArcFace model pre-warmed.")
+    except Exception as e:
+        print(f"[Init Warning] ArcFace preload: {e}")
 
 def run_recognition(frame_crop):
     global is_recognizing, status_text, status_timer
@@ -134,7 +142,14 @@ def run_recognition(frame_crop):
     
     try:
         try:
-            dfs = DeepFace.find(img_path=temp_path, db_path=USERS_DIR, model_name="ArcFace", distance_metric="cosine", enforce_detection=False, silent=True)
+            dfs = DeepFace.find(
+                img_path=temp_path,
+                db_path=USERS_DIR,
+                model_name="ArcFace",
+                distance_metric="cosine",
+                enforce_detection=False,
+                silent=True
+            )
         except ValueError as e:
             if "Face could not be detected" in str(e) or "Face not found" in str(e):
                 with lock:
@@ -164,11 +179,13 @@ def run_recognition(frame_crop):
                 return
                 
             user_name = os.path.basename(os.path.dirname(matched_path))
+            print(f"[Recognition Success] Matched user: '{user_name}' (distance: {dist:.3f})")
             now = datetime.now()
             
             with lock:
                 last_action = last_action_times.get(user_name)
                 is_user_logged_in = database.is_logged_in(user_name)
+                print(f"[Attendance Check] user='{user_name}', is_logged_in={is_user_logged_in}")
                 
                 if not is_user_logged_in:
                     time_str = now.strftime("%I:%M %p")
@@ -184,18 +201,22 @@ def run_recognition(frame_crop):
                     else:
                         status_text = f"PROMPT_LOGOUT|{user_name}"
                         status_timer = time.time()
+                        print(f"[PROMPT_LOGOUT set for {user_name}]")
         else:
             with lock:
                 status_text = "Unknown Face"
                 status_timer = time.time()
     except Exception as e:
-        print("DeepFace Error:", e)
+        print("[DeepFace Error]", e)
         with lock:
             status_text = f"Error: {str(e)[:30]}"
             status_timer = time.time()
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
         with lock:
             is_recognizing = False
 
@@ -477,7 +498,7 @@ def process_camera():
                 gaze_status_msg = "POSITION FACE IN TARGET ZONE"
                     
             with lock:
-                if status_text and time.time() - status_timer > 4:
+                if status_text and not status_text.startswith("PROMPT_LOGOUT") and time.time() - status_timer > 4:
                     status_text = ""
 
             with lock:
