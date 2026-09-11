@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title|default:"Attendance Action Confirmation" }} - SmartHR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1.25rem;
+            max-width: 500px;
+            width: 100%;
+            padding: 2.5rem;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .status-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.25rem;
+            margin: 0 auto 1.5rem;
+        }
+        .icon-success { background: rgba(16, 185, 129, 0.15); border: 2px solid rgba(16, 185, 129, 0.4); color: #10b981; }
+        .icon-danger { background: rgba(239, 68, 68, 0.15); border: 2px solid rgba(239, 68, 68, 0.4); color: #ef4444; }
+        .icon-info { background: rgba(59, 130, 246, 0.15); border: 2px solid rgba(59, 130, 246, 0.4); color: #3b82f6; }
+        h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
+        p.subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.75rem; line-height: 1.5; }
+        .details-box {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            text-align: left;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: var(--text-muted); font-weight: 500; }
+        .detail-val { color: var(--text-main); font-weight: 600; }
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            text-decoration: none;
+            padding: 0.85rem 1.75rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        {% if status == 'approved' %}
+        <div class="status-icon icon-success">✅</div>
+        <h1 style="color: #10b981;">Attendance Approved</h1>
+        <p class="subtitle">The request has been approved and login timestamp is officially saved.</p>
+        {% elif status == 'rejected' %}
+        <div class="status-icon icon-danger">❌</div>
+        <h1 style="color: #ef4444;">Request Rejected</h1>
+        <p class="subtitle">The late arrival / attendance request has been rejected.</p>
+        {% else %}
+        <div class="status-icon icon-info">ℹ️</div>
+        <h1>Request Processed</h1>
+        <p class="subtitle">{{ message|default:"This request has already been processed." }}</p>
+        {% endif %}
+
+        {% if att_req %}
+        <div class="details-box">
+            <div class="detail-row">
+                <span class="detail-label">Employee:</span>
+                <span class="detail-val">{{ att_req.employee.user.get_full_name|default:att_req.employee.user.username }} ({{ att_req.employee.employee_id_code|default:"EMP" }})</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Department:</span>
+                <span class="detail-val">{{ att_req.employee.department.name|default:"General" }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Date:</span>
+                <span class="detail-val">{{ att_req.date|date:"d M Y" }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Marked Time:</span>
+                <span class="detail-val" style="color:#60a5fa;">{{ att_req.requested_time|time:"H:i" }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Request Type:</span>
+                <span class="detail-val">{{ att_req.request_type }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Reason:</span>
+                <span class="detail-val">{{ att_req.reason }}</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <a href="/admin-dashboard/" class="btn">Go to Admin Dashboard</a>
+    </div>
+</body>
+</html>

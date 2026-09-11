@@ -908,9 +908,15 @@
                         <p style="font-size:0.85rem; color:var(--text-muted); line-height: 1.4;">
                             Clock In: <strong>{{ attendance.clock_in|time:"H:i" }}</strong><br>
                             Clock Out: <strong>{{ attendance.clock_out|time:"H:i" }}</strong><br>
-                            Duration: <strong>{{ attendance.total_hours|default:"-" }} hours</strong>
+                            Duration: <strong>{{ attendance.duration_display }}</strong>
                         </p>
                         {% endif %}
+
+                        <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.85rem;">
+                            <button type="button" onclick="openPermissionModal()" style="width: 100%; padding: 0.65rem; font-size: 0.85rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);">
+                                📝 Request Permission (Late In / Early Out)
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1087,6 +1093,65 @@
 
         <!-- Tab 2: Attendance Logs -->
         <div id="attendance-tab" class="tab-pane">
+            <!-- Attendance Permission Requests Section -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 class="card-title">My Permission & Approval Requests</h2>
+                    <button type="button" onclick="openPermissionModal()" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 0.5rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);">
+                        + New Request
+                    </button>
+                </div>
+                <div class="table-container">
+                    {% if my_attendance_requests %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Request Type</th>
+                                <th>Requested Time</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Reviewed By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in my_attendance_requests %}
+                            <tr>
+                                <td><strong>{{ req.date|date:"d M Y" }}</strong></td>
+                                <td>
+                                    <span class="badge" style="background:rgba(59,130,246,0.15); color:#3b82f6; font-weight:700;">{{ req.request_type }}</span>
+                                </td>
+                                <td style="font-weight:700; color:#60a5fa;">{{ req.requested_time|time:"h:i A" }}</td>
+                                <td style="font-size:0.85rem;">{{ req.reason }}</td>
+                                <td>
+                                    {% if req.status == 'Approved' %}
+                                    <span class="badge badge-Approved">✔ Approved</span>
+                                    {% elif req.status == 'Rejected' %}
+                                    <span class="badge badge-Rejected">✖ Rejected</span>
+                                    {% else %}
+                                    <span class="badge badge-Pending" style="background:#fef3c7; color:#b45309; font-weight:700;">⏳ Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size:0.8rem; color:var(--text-muted);">
+                                    {% if req.reviewed_at %}
+                                    {{ req.reviewed_at|date:"d M, H:i" }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 1.75rem;">
+                        No attendance permission requests submitted yet.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Attendance History Timeline -->
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">Attendance History Logs</h2>
@@ -1098,19 +1163,41 @@
                         <div class="timeline-marker"></div>
                         <div class="timeline-content">
                             <div class="timeline-date">{{ record.date|date:"l, d F Y" }}</div>
-                            <div class="timeline-title">
-                                Clocked In: {{ record.clock_in|time:"H:i:s" }}
+                            <div class="timeline-title" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem;">
+                                <span>Clocked In: <strong>{{ record.clock_in|time:"h:i A" }}</strong></span>
+                                {% if record.late_minutes > 0 %}
+                                    {% if record.late_arrival_request and record.late_arrival_request.status == 'Approved' %}
+                                    <span class="badge" style="background:rgba(16,185,129,0.18); color:#10b981; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:4px;">✔ Late Approved ({{ record.late_minutes }}m)</span>
+                                    {% elif record.late_arrival_request and record.late_arrival_request.status == 'Rejected' %}
+                                    <span class="badge" style="background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:4px;">✖ Late Rejected ({{ record.late_minutes }}m)</span>
+                                    {% elif record.late_arrival_request and record.late_arrival_request.status == 'Pending' %}
+                                    <span class="badge" style="background:rgba(245,158,11,0.18); color:#f59e0b; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:4px;">⏳ Late Pending Approval</span>
+                                    {% else %}
+                                    <span class="badge" style="background:rgba(239,68,68,0.12); color:#ef4444; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:4px;">Late {{ record.late_minutes }}m</span>
+                                    {% endif %}
+                                {% endif %}
+
                                 {% if record.clock_out %}
-                                &bull; Clocked Out: {{ record.clock_out|time:"H:i:s" }}
+                                <span>&bull; Clocked Out: <strong>{{ record.clock_out|time:"h:i A" }}</strong></span>
+                                    {% if record.early_logout_request and record.early_logout_request.status == 'Approved' %}
+                                    <span class="badge" style="background:rgba(16,185,129,0.18); color:#10b981; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:4px;">✔ Early Out Approved</span>
+                                    {% elif record.early_logout_request and record.early_logout_request.status == 'Rejected' %}
+                                    <span class="badge" style="background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:4px;">✖ Early Out Rejected</span>
+                                    {% elif record.early_logout_request and record.early_logout_request.status == 'Pending' %}
+                                    <span class="badge" style="background:rgba(245,158,11,0.18); color:#f59e0b; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:4px;">⏳ Early Out Pending Approval</span>
+                                    {% endif %}
                                 {% else %}
-                                (Still Active)
+                                <span class="badge badge-Pending" style="background:#fef3c7; color:#b45309; font-weight:700; font-size:0.75rem;">Active / Working</span>
                                 {% endif %}
                             </div>
-                            <div class="timeline-desc">
+                            <div class="timeline-desc" style="margin-top:0.4rem;">
                                 {% if record.clock_out %}
-                                Total working hours calculated: <strong>{{ record.total_hours }} hrs</strong>
+                                Total working hours: <strong>{{ record.duration_display }}</strong>
+                                {% if record.overtime_minutes > 0 %}
+                                <span style="color:#10b981; font-weight:700; margin-left:0.5rem;">(+{{ record.overtime_minutes }}m Overtime)</span>
+                                {% endif %}
                                 {% else %}
-                                Active shift under progression.
+                                Active shift under progression: <strong>{{ record.duration_display }}</strong>
                                 {% endif %}
                             </div>
                         </div>
@@ -1837,11 +1924,67 @@
         document.getElementById('payslipModal').style.display = 'none';
     }
 
+    function openPermissionModal() {
+        const m = document.getElementById('permissionModal');
+        if (m) m.style.display = 'flex';
+    }
+
+    function closePermissionModal() {
+        const m = document.getElementById('permissionModal');
+        if (m) m.style.display = 'none';
+    }
+
     window.addEventListener('click', function (event) {
         if (event.target === document.getElementById('payslipModal')) closePayslipModal();
+        if (event.target === document.getElementById('permissionModal')) closePermissionModal();
     });
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') closePayslipModal();
+        if (event.key === 'Escape') {
+            closePayslipModal();
+            closePermissionModal();
+        }
     });
 </script>
+
+<!-- Late Arrival / Attendance Permission Modal -->
+<div id="permissionModal" style="display:none; position:fixed; z-index:9999; inset:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; padding:1rem; backdrop-filter:blur(4px);">
+    <div style="background:var(--bg); border:1px solid var(--border); border-radius:1rem; max-width:480px; width:100%; padding:2rem; box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:var(--text-main);">📝 Attendance Permission Request</h3>
+            <button type="button" onclick="closePermissionModal()" style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST" action="{% url 'apply_attendance_permission' %}">
+            {% csrf_token %}
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:0.3rem;">Request Type</label>
+                <select name="request_type" style="width:100%; padding:0.6rem; border-radius:0.5rem; border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-main);">
+                    <option value="Early Departure">Early Departure (Leave Early)</option>
+                    <option value="Late Arrival">Late Arrival Permission</option>
+                    <option value="Emergency Exit">Emergency Early Exit</option>
+                    <option value="Clock In">Manual Clock-In Approval</option>
+                    <option value="Clock Out">Manual Clock-Out Approval</option>
+                    <option value="Permission">General Permission</option>
+                </select>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:0.3rem;">Date</label>
+                    <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required style="width:100%; padding:0.6rem; border-radius:0.5rem; border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-main);">
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:0.3rem;">Expected Time</label>
+                    <input type="time" name="requested_time" required style="width:100%; padding:0.6rem; border-radius:0.5rem; border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-main);">
+                </div>
+            </div>
+            <div style="margin-bottom:1.5rem;">
+                <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:0.3rem;">Reason for Permission / Delay</label>
+                <textarea name="reason" rows="3" required placeholder="e.g. Traffic delay, doctor appointment, personal emergency..." style="width:100%; padding:0.6rem; border-radius:0.5rem; border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-main);"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+                <button type="button" onclick="closePermissionModal()" style="padding:0.6rem 1.25rem; border-radius:0.5rem; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit" style="padding:0.6rem 1.5rem; border-radius:0.5rem; border:none; background:linear-gradient(135deg, #10b981, #059669); color:white; font-weight:700; cursor:pointer; box-shadow:0 4px 10px rgba(16,185,129,0.3);">Submit to Admin</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

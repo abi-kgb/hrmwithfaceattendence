@@ -13,6 +13,7 @@ from flask import Flask, render_template, Response, jsonify, request, send_from_
 from deepface import DeepFace
 import database
 import mailer
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,7 +23,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 USERS_DIR = "users"
 COOLDOWN_MINUTES = 0.25  # 15 seconds cooldown anti-bounce
-REQUIRED_HOLD_DURATION = 1.2  # 1.2 seconds continuous gaze required for attendance
+REQUIRED_HOLD_DURATION = 0.5  # 1.2 seconds continuous gaze required for attendance
 
 # Try importing MediaPipe for 3D Iris & Head Mesh Tracking
 try:
@@ -184,24 +185,40 @@ def run_recognition(frame_crop):
             
             with lock:
                 last_action = last_action_times.get(user_name)
-                is_user_logged_in = database.is_logged_in(user_name)
-                print(f"[Attendance Check] user='{user_name}', is_logged_in={is_user_logged_in}")
+                today_rec = database.get_user_today_attendance(user_name)
+                has_pending = database.has_pending_action(user_name)
+                today_str = now.strftime("%Y-%m-%d")
                 
-                if not is_user_logged_in:
+                if today_rec is None:
+                    # User has not clocked in yet today -> Clock in!
                     time_str = now.strftime("%I:%M %p")
                     if database.log_login(user_name):
-                        status_text = f"SUCCESS|{user_name}|{time_str}"
+                        status_text = f"SUCCESS|{user_name}|Logged in successfully at {time_str}"
                     last_action_times[user_name] = now
                     status_timer = time.time()
-                else:
-                    if last_action and (now - last_action).total_seconds() <= COOLDOWN_MINUTES * 60:
-                        time_left = int(COOLDOWN_MINUTES * 60 - (now - last_action).total_seconds())
-                        status_text = f"Cooldown: {user_name} ({time_left}s)"
+                elif today_rec.get('logout_time') is None or today_rec.get('logout_time') in ['', '-']:
+                    # User is currently clocked in
+                    if has_pending:
+                        status_text = f"PENDING|{user_name}|Logout Request is Pending HRM Admin Approval"
                         status_timer = time.time()
                     else:
-                        status_text = f"PROMPT_LOGOUT|{user_name}"
-                        status_timer = time.time()
-                        print(f"[PROMPT_LOGOUT set for {user_name}]")
+                        if last_action and (now - last_action).total_seconds() <= COOLDOWN_MINUTES * 60:
+                            time_left = int(COOLDOWN_MINUTES * 60 - (now - last_action).total_seconds())
+                            status_text = f"Cooldown: {user_name} ({time_left}s)"
+                            status_timer = time.time()
+                        else:
+                            status_text = f"PROMPT_LOGOUT|{user_name}"
+                            status_timer = time.time()
+                            print(f"[PROMPT_LOGOUT set for {user_name}]")
+                else:
+                    # User has already clocked out for today
+                    try:
+                        raw_out = str(today_rec.get('logout_time', ''))[:8]
+                        t_out = datetime.strptime(raw_out, "%H:%M:%S").strftime("%I:%M %p")
+                    except Exception:
+                        t_out = str(today_rec.get('logout_time', ''))
+                    status_text = f"SUCCESS|{user_name}|Attendance Completed Today (Clocked Out at {t_out})"
+                    status_timer = time.time()
         else:
             with lock:
                 status_text = "Unknown Face"
@@ -243,15 +260,15 @@ def verify_iris_and_head_pose(frame):
         head_center = (l_ear.x + r_ear.x) / 2.0
         face_width = abs(l_ear.x - r_ear.x)
         
-        if abs(nose.x - head_center) > face_width * 0.15:
+        if abs(nose.x - head_center) > face_width * 0.22:
             return False, "HEAD TURNED - LOOK STRAIGHT", landmarks
 
         # 2. Head Pitch (Tilting up / down)
         top = landmarks[10]     # Top forehead
         bottom = landmarks[152] # Bottom chin
-        if top.z < bottom.z - 0.05:
+        if top.z < bottom.z - 0.10:
             return False, "HEAD TILTED DOWN", landmarks
-        if bottom.z < top.z - 0.09:
+        if bottom.z < top.z - 0.14:
             return False, "HEAD TILTED UP", landmarks
 
         # 3. Eye Aspect Ratio (EAR) - Closed eyes or looking down
@@ -263,8 +280,8 @@ def verify_iris_and_head_pose(frame):
         ear_left = l_v / (l_h + 1e-6)
         ear_right = r_v / (r_h + 1e-6)
         
-        if ear_left < 0.15 or ear_right < 0.15:
-            return False, "EYES CLOSED / LOOKING DOWN", landmarks
+        if ear_left < 0.10 or ear_right < 0.10:
+            return False, "EYES CLOSED", landmarks
 
         # 4. Iris Landmark Alignment (Centered Gaze)
         if len(landmarks) > 473:
@@ -279,28 +296,43 @@ def verify_iris_and_head_pose(frame):
             # Left eye iris x-ratio
             dist_l_in = abs(l_iris.x - l_inner.x)
             dist_l_out = abs(l_iris.x - l_outer.x)
-            if dist_l_in * 2.6 < dist_l_out or dist_l_out * 2.6 < dist_l_in:
+            if dist_l_in * 4.0 < dist_l_out or dist_l_out * 4.0 < dist_l_in:
                 return False, "EYES LOOKING SIDEWAY", landmarks
 
             # Right eye iris x-ratio
             dist_r_in = abs(r_iris.x - r_inner.x)
             dist_r_out = abs(r_iris.x - r_outer.x)
-            if dist_r_in * 2.6 < dist_r_out or dist_r_out * 2.6 < dist_r_in:
+            if dist_r_in * 4.0 < dist_r_out or dist_r_out * 4.0 < dist_r_in:
                 return False, "EYES LOOKING SIDEWAY", landmarks
 
-        return True, "KEEP LOOKING AT CAMERA", landmarks
+        return True, "PERFECT POSITION", landmarks
     except Exception as e:
         return False, "NO FACE DETECTED", None
 
 def open_camera(index):
-    cap = cv2.VideoCapture(index)
-    if cap.isOpened():
-        ret, _ = cap.read()
-        if ret:
-            return cap
-        cap.release()
+    """
+    Initializes camera with DirectShow backend and MJPG 640x480 resolution
+    to prevent stride mismatch, slice duplication, and noise distortion on Windows.
+    """
     cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        cap = cv2.VideoCapture(index)
+        
+    if cap.isOpened():
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        ret, test_frame = cap.read()
+        if ret and test_frame is not None:
+            return cap
+            
+    # Fallback to default if DirectShow fails
+    cap = cv2.VideoCapture(index)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     return cap
+
 
 def process_camera():
     global camera, output_frame, status_text, status_timer, capture_request, is_recognizing
@@ -308,7 +340,8 @@ def process_camera():
     global gaze_start_time, current_gaze_duration, gaze_status_msg
     
     current_index = camera_index
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    cascade_path = os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml')
+    face_cascade = cv2.CascadeClassifier(cascade_path)
     
     last_frame_time = time.time()
     
@@ -372,7 +405,9 @@ def process_camera():
             is_valid_gaze, reason_text, landmarks = verify_iris_and_head_pose(frame)
             
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
+            faces = []
+            if face_cascade and not face_cascade.empty():
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
             
             with capture_lock:
                 req = capture_request
@@ -408,40 +443,36 @@ def process_camera():
                 fc_x = (fx + fw / 2.0) / float(w)
                 fc_y = (fy + fh / 2.0) / float(h)
 
-                # Simple, reliable check:
-                # 1. Face center must be inside the target ellipse
-                # 2. Face must not be too big or too small
-                # rx=0.12, ry=0.16 = tight zone matching the DRAWN circle on screen
-                rx, ry = 0.12, 0.16
+                # Generous natural matching ellipse (rx=0.18, ry=0.25)
+                rx, ry = 0.18, 0.25
                 center_dist = ((fc_x - 0.5) / rx) ** 2 + ((fc_y - 0.5) / ry) ** 2
                 
                 pos_status = "OK"
                 guidance_msg = ""
                 box_color = (0, 215, 255)  # Amber default
                 
-                if face_ratio_h > 0.80 or face_ratio_w > 0.75:
+                if face_ratio_h > 0.85 or face_ratio_w > 0.80:
                     pos_status = "TOO_CLOSE"
                     guidance_msg = "MOVE BACK SLIGHTLY"
                     box_color = (0, 165, 255)
-                elif face_ratio_h < 0.15 or face_ratio_w < 0.12:
+                elif face_ratio_h < 0.12 or face_ratio_w < 0.10:
                     pos_status = "TOO_FAR"
                     guidance_msg = "MOVE CLOSER TO CAMERA"
                     box_color = (0, 215, 255)
-                elif center_dist > 1.0:
-                    # Face center not inside ellipse — give directional guidance
+                elif center_dist > 1.3:
                     pos_status = "OFF_CENTER"
                     box_color = (0, 215, 255)
-                    if fc_y < 0.42:
+                    if fc_y < 0.38:
                         guidance_msg = "MOVE FACE DOWN"
-                    elif fc_y > 0.58:
+                    elif fc_y > 0.62:
                         guidance_msg = "MOVE FACE UP"
-                    elif fc_x < 0.42:
+                    elif fc_x < 0.38:
                         guidance_msg = "MOVE FACE RIGHT"
-                    elif fc_x > 0.58:
+                    elif fc_x > 0.62:
                         guidance_msg = "MOVE FACE LEFT"
                     else:
                         guidance_msg = "CENTER YOUR FACE"
-                elif is_valid_gaze or reason_text in ["NO FACE DETECTED", "KEEP LOOKING AT CAMERA", "MEDIAPIPE NOT LOADED"]:
+                elif is_valid_gaze or reason_text in ["NO FACE DETECTED", "KEEP LOOKING AT CAMERA", "MEDIAPIPE NOT LOADED", "PERFECT POSITION"]:
                     pos_status = "PERFECT"
                     box_color = (0, 255, 0)  # Green
                 else:
@@ -452,12 +483,7 @@ def process_camera():
                 gaze_status_msg = guidance_msg if pos_status != "PERFECT" else "PERFECT POSITION"
 
                 if pos_status == "PERFECT":
-                    if gaze_start_time is None:
-                        gaze_start_time = current_time
-                        current_gaze_duration = 0.0
-                    else:
-                        current_gaze_duration = current_time - gaze_start_time
-                        
+                    current_gaze_duration = min(REQUIRED_HOLD_DURATION, current_gaze_duration + max(0.03, dt))
                     progress = min(1.0, current_gaze_duration / REQUIRED_HOLD_DURATION)
                     
                     if progress >= 1.0:
@@ -465,9 +491,8 @@ def process_camera():
                     else:
                         hud_text = f"HOLD GAZE: {current_gaze_duration:.1f}s / {REQUIRED_HOLD_DURATION:.1f}s"
                 else:
-                    gaze_start_time = None
-                    current_gaze_duration = 0.0
-                    progress = 0.0
+                    current_gaze_duration = max(0.0, current_gaze_duration - max(0.02, dt * 0.5))
+                    progress = min(1.0, current_gaze_duration / REQUIRED_HOLD_DURATION)
                     hud_text = guidance_msg
 
                 # Draw Bounding Box (Square)
@@ -694,8 +719,33 @@ def delete_user(user_name):
         cursor.execute("DELETE FROM users WHERE user_name = ?", (user_name,))
         conn.commit()
         conn.close()
-        return jsonify({"success": True})
-    return jsonify({"success": False, "message": "User not found."})
+@app.route('/api/admin/requests', methods=['GET'])
+def admin_requests():
+    load_dotenv(override=True)
+    hrm_req_url = os.environ.get("HRM_PENDING_REQ_URL", "http://127.0.0.1:8000/api/attendance/pending-requests/")
+    try:
+        resp = requests.get(hrm_req_url, timeout=4)
+        if resp.status_code == 200:
+            res_data = resp.json()
+            if res_data.get("success") and "requests" in res_data:
+                return jsonify(res_data["requests"])
+    except Exception as e:
+        print(f"[Warning] Could not fetch pending requests from MyHRM: {e}")
+    return jsonify([])
+
+@app.route('/api/admin/action_request', methods=['POST'])
+def admin_action_request():
+    data = request.json or {}
+    token = data.get('token')
+    action = data.get('action', 'approve')
+    if not token:
+        return jsonify({"success": False, "message": "Token required."}), 400
+    try:
+        hrm_act_url = f"http://127.0.0.1:8000/attendance/{action}/{token}/"
+        resp = requests.get(hrm_act_url, timeout=5)
+        return jsonify({"success": True, "message": f"Request {action}d successfully."})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/api/request_logout', methods=['POST'])
 def request_logout():
@@ -709,30 +759,52 @@ def request_logout():
     now = datetime.now()
     time_str = now.strftime("%I:%M %p")
     today_str = now.strftime("%Y-%m-%d")
+    cur_time_str = now.strftime("%H:%M:%S")
     
-    # Process logout in database & trigger MyHRM webhook
-    logged_out = database.log_logout(user_name)
+    # Send Permission Request to HRM Admin Dashboard
+    token = str(uuid.uuid4())
+    hrm_url = os.environ.get("HRM_PERMISSION_URL", "http://127.0.0.1:8000/api/attendance/request-permission/")
+    try:
+        req_payload = {
+            "user_name": user_name,
+            "action": "Early Departure",
+            "reason": f"Logout requested via Face Attendance camera at {time_str}",
+            "time": cur_time_str,
+            "date": today_str
+        }
+        resp = requests.post(hrm_url, json=req_payload, timeout=5)
+        if resp.status_code == 200:
+            resp_data = resp.json()
+            if resp_data.get("token"):
+                token = resp_data.get("token")
+        print(f"[HRM Request Permission] Response: {resp.status_code} -> {resp.text[:100]}")
+    except Exception as e:
+        print(f"[HRM Request Permission Error] {e}")
     
-    # Send email notification to Admin
-    email_subject = f"Attendance Logout Notification: {user_name}"
-    email_body = (
-        f"Attendance Event: Logout Confirmation\n"
-        f"Employee: {user_name}\n"
-        f"Date: {today_str}\n"
-        f"Time: {time_str}\n\n"
-        f"This is an automated notification sent to Admin (abhinaya.kgb@gmail.com)."
-    )
-    database.send_admin_email(email_subject, email_body, recipient="abhinaya.kgb@gmail.com")
-    
+    # Record in local pending_actions with synchronized token
+    try:
+        conn = database.get_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT OR REPLACE INTO pending_actions (token, user_name, date, action_time, action_type, status)
+            VALUES (?, ?, ?, ?, 'Early Departure', 'pending')
+        ''', (token, user_name, today_str, cur_time_str))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[Pending Actions SQLite Error] {e}")
+
     with lock:
         last_action_times[user_name] = now
-        status_text = f"SUCCESS|{user_name}|Logged Out at {time_str}"
+        status_text = f"PENDING|{user_name}|Logout Request Sent to HRM Admin for Approval"
         status_timer = time.time()
         
     return jsonify({
         "success": True, 
-        "message": f"Logged out successfully. Notification sent to abhinaya.kgb@gmail.com."
+        "message": f"Logout request for {user_name} sent to HRM Admin Dashboard for approval."
     })
+
+
 
 @app.route('/api/clear_prompt', methods=['POST'])
 def clear_prompt():

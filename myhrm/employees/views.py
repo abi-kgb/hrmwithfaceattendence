@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.utils import timezone
 from datetime import date, datetime
 from .models import (
-    Employee, LeaveRequest, Attendance, Payslip, ShiftRequest,
+    Employee, LeaveRequest, Attendance, AttendanceRequest, Payslip, ShiftRequest,
     JobPosting, JobApplication, PerformanceReview,
     Training, TrainingEnrollment, Holiday, Client, GoalTracking, Project, ProjectUpdate, EmployeeDocument,
     Shift, Asset, Expense, Department, Designation, ActivityLog, Event, HRLetter, PersonalNote
@@ -391,6 +391,7 @@ def employee_dashboard(request):
         'expenses': Expense.objects.filter(employee=employee).order_by('-date_submitted'),
         'calendar_events_json': get_unified_calendar_events(user=request.user, employee=employee),
         'my_letters': HRLetter.objects.filter(employee=employee).order_by('-issue_date'),
+        'my_attendance_requests': AttendanceRequest.objects.filter(employee=employee).order_by('-created_at'),
     }
     return render(request, 'employees/employee_dashboard.html', context)
 
@@ -763,16 +764,17 @@ def admin_dashboard(request):
         'calendar_events_json': get_unified_calendar_events(user=request.user),
         'holidays': Holiday.objects.all().order_by('date'),
         'hr_letters': HRLetter.objects.select_related('employee__user').all().order_by('-issue_date'),
+        'attendance_permission_requests': AttendanceRequest.objects.select_related('employee__user', 'employee__department').all().order_by('-created_at'),
     }
     return render(request, 'employees/admin_dashboard.html', context)
 
 @admin_only
 def add_employee(request):
     if request.method == 'POST':
-        username = request.POST.get('username')
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        email = request.POST.get('email')
+        username = (request.POST.get('username') or '').strip()
+        first_name = (request.POST.get('first_name') or '').strip()
+        last_name = (request.POST.get('last_name') or '').strip()
+        email = (request.POST.get('email') or '').strip()
         password = request.POST.get('password')
         department_id = request.POST.get('department_id')
         department_name = request.POST.get('department')
@@ -825,58 +827,63 @@ def add_employee(request):
         ot_hourly_rate = request.POST.get('ot_hourly_rate', 0.0)
         grace_period_minutes = int(request.POST.get('grace_period_minutes', 120))
         
-        if User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
-        elif User.objects.filter(email=email).exists():
-            messages.error(request, "Email already exists.")
+        if User.objects.filter(username__iexact=username).exists():
+            messages.error(request, f"Username '{username}' already exists. Please choose a different username.")
+            return redirect('admin_dashboard')
+        elif email and User.objects.filter(email__iexact=email).exists():
+            messages.error(request, f"Email '{email}' is already registered to another employee.")
+            return redirect('admin_dashboard')
         else:
-            user = User.objects.create_user(
-                username=username,
-                password=password,
-                email=email,
-                first_name=first_name,
-                last_name=last_name
-            )
-            emp_kwargs = dict(
-                user=user,
-                phone=phone,
-                salary=salary,
-                is_company_admin=is_admin_flag,
-                ot_hourly_rate=ot_hourly_rate,
-                grace_period_minutes=grace_period_minutes,
-                role=role
-            )
-            if department_id:
-                emp_kwargs['department_id'] = department_id
-            if designation_id:
-                emp_kwargs['designation_id'] = designation_id
-            if shift_id:
-                try:
-                    emp_kwargs['shift_id'] = shift_id
-                except ValueError:
-                    pass
-            if gender:
-                emp_kwargs['gender'] = gender
-            if date_of_birth:
-                try:
-                    emp_kwargs['date_of_birth'] = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
-                except Exception:
-                    pass
-            if address:
-                emp_kwargs['address'] = address
-            if employee_id_code:
-                emp_kwargs['employee_id_code'] = employee_id_code
+            try:
+                user = User.objects.create_user(
+                    username=username,
+                    password=password,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+                emp_kwargs = dict(
+                    user=user,
+                    phone=phone,
+                    salary=salary,
+                    is_company_admin=is_admin_flag,
+                    ot_hourly_rate=ot_hourly_rate,
+                    grace_period_minutes=grace_period_minutes,
+                    role=role
+                )
+                if department_id:
+                    emp_kwargs['department_id'] = department_id
+                if designation_id:
+                    emp_kwargs['designation_id'] = designation_id
+                if shift_id:
+                    try:
+                        emp_kwargs['shift_id'] = shift_id
+                    except ValueError:
+                        pass
+                if gender:
+                    emp_kwargs['gender'] = gender
+                if date_of_birth:
+                    try:
+                        emp_kwargs['date_of_birth'] = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+                    except Exception:
+                        pass
+                if address:
+                    emp_kwargs['address'] = address
+                if employee_id_code:
+                    emp_kwargs['employee_id_code'] = employee_id_code
 
-            new_emp = Employee.objects.create(**emp_kwargs)
-            
-            # Save photo from file or camera capture
-            photo_file = request.FILES.get('photo')
-            photo_b64 = request.POST.get('photo_b64')
-            if photo_file or photo_b64:
-                save_and_sync_employee_photo(new_emp, photo_file=photo_file, photo_b64=photo_b64)
+                new_emp = Employee.objects.create(**emp_kwargs)
+                
+                # Save photo from file or camera capture
+                photo_file = request.FILES.get('photo')
+                photo_b64 = request.POST.get('photo_b64')
+                if photo_file or photo_b64:
+                    save_and_sync_employee_photo(new_emp, photo_file=photo_file, photo_b64=photo_b64)
 
-            log_activity(request.user, f'Created Employee {first_name} {last_name}', 'Employee Management', request)
-            messages.success(request, f"Employee {first_name} {last_name} created successfully!")
+                log_activity(request.user, f'Created Employee {first_name} {last_name}', 'Employee Management', request)
+                messages.success(request, f"Employee {first_name} {last_name} ({employee_id_code}) created successfully!")
+            except Exception as e:
+                messages.error(request, f"Could not create employee: {str(e)}")
             
     return redirect('admin_dashboard')
 
@@ -2526,4 +2533,413 @@ def delete_personal_note(request, note_id):
     note.delete()
     messages.success(request, "Private note deleted.")
     return redirect(request.META.get('HTTP_REFERER', 'home'))
+
+# --- Attendance Permission & Email Approval Views ---
+
+@login_required
+def apply_attendance_permission(request):
+    """
+    Employee submits late arrival permission / clock-in request.
+    The attendance is held in 'Pending' state and an email with Approve/Reject buttons is sent to Admin.
+    """
+    if request.method == 'POST':
+        employee = getattr(request.user, 'employee', None)
+        if not employee:
+            messages.error(request, "Employee profile not found.")
+            return redirect('employee_dashboard')
+            
+        req_date_str = request.POST.get('date')
+        req_time_str = request.POST.get('requested_time')
+        req_type = request.POST.get('request_type', 'Late Arrival')
+        reason = request.POST.get('reason', '').strip()
+        
+        if not req_time_str or not reason:
+            messages.error(request, "Please specify both the requested time and reason.")
+            return redirect('employee_dashboard')
+            
+        try:
+            req_date = datetime.strptime(req_date_str, '%Y-%m-%d').date() if req_date_str else date.today()
+            # Parse requested time
+            time_obj = None
+            for fmt in ('%H:%M', '%H:%M:%S', '%I:%M %p'):
+                try:
+                    time_obj = datetime.strptime(req_time_str.strip(), fmt).time()
+                    break
+                except ValueError:
+                    pass
+            if not time_obj:
+                time_obj = datetime.now().time()
+                
+            att_req = AttendanceRequest.objects.create(
+                employee=employee,
+                date=req_date,
+                request_type=req_type,
+                requested_time=time_obj,
+                reason=reason,
+                status='Pending'
+            )
+            
+            log_activity(request.user, f"Requested {req_type} permission for {req_date} at {time_obj}", "Attendance", request)
+            messages.success(request, f"✅ {req_type} permission request sent to Admin Dashboard for approval.")
+        except Exception as e:
+            messages.error(request, f"Error creating permission request: {str(e)}")
+            
+    return redirect('employee_dashboard')
+
+
+def attendance_approve_view(request, token):
+    """
+    One-click Action from Admin Email to Approve late arrival / attendance login / early clock-out.
+    Marks attendance record with requested time and status Present / Completed.
+    """
+    att_req = AttendanceRequest.objects.filter(token=token).first()
+    
+    # Fallback to Face App SQLite pending_actions if not in Django
+    if not att_req:
+        try:
+            face_db_path = os.path.join(settings.BASE_DIR.parent, 'face', 'attendance.db')
+            if os.path.exists(face_db_path):
+                import sqlite3
+                conn = sqlite3.connect(face_db_path)
+                cur = conn.cursor()
+                cur.execute("SELECT user_name, date, action_time, action_type, status FROM pending_actions WHERE token = ?", (token,))
+                row = cur.fetchone()
+                if row:
+                    u_name, d_str, t_str, a_type, p_status = row
+                    cur_date = datetime.strptime(d_str, "%Y-%m-%d").date()
+                    req_time = datetime.strptime(t_str, "%H:%M:%S").time() if len(t_str) == 8 else datetime.strptime(t_str, "%H:%M").time()
+                    clean_name = u_name.split('_')[0].strip()
+                    emp = Employee.objects.filter(
+                        Q(user__username__iexact=clean_name) |
+                        Q(user__first_name__iexact=clean_name) |
+                        Q(user__username__icontains=clean_name)
+                    ).first()
+                    
+                    if emp:
+                        req_name = 'Early Departure' if a_type in ['logout', 'Early Departure', 'Clock Out'] else 'Late Arrival'
+                        att_req, _ = AttendanceRequest.objects.get_or_create(
+                            token=token,
+                            defaults={
+                                'employee': emp,
+                                'date': cur_date,
+                                'requested_time': req_time,
+                                'request_type': req_name,
+                                'reason': f'{req_name} via Face Attendance System',
+                                'status': 'Pending' if p_status == 'pending' else 'Approved'
+                            }
+                        )
+                        cur.execute("UPDATE pending_actions SET status = 'approved' WHERE token = ?", (token,))
+                        conn.commit()
+                conn.close()
+        except Exception as e:
+            print(f"[Face Pending Lookup Error] {e}")
+            
+    if not att_req:
+        return render(request, 'employees/approval_confirmation.html', {
+            'status': 'not_found',
+            'message': 'Attendance request token not found or already expired.'
+        })
+    
+    if att_req.status != 'Pending':
+        return render(request, 'employees/approval_confirmation.html', {
+            'status': 'already_done',
+            'att_req': att_req,
+            'message': f"This request was already {att_req.status.lower()} on {att_req.reviewed_at.strftime('%d %b %Y, %I:%M %p') if att_req.reviewed_at else 'earlier'}."
+        })
+        
+    att_req.status = 'Approved'
+    att_req.reviewed_at = timezone.now()
+    if request.user.is_authenticated and request.user.is_staff:
+        att_req.reviewed_by = request.user
+    att_req.save()
+    
+    # Save/Update official attendance record for the employee
+    emp_shift = att_req.employee.shift
+    att_record, created = Attendance.objects.get_or_create(
+        employee=att_req.employee,
+        date=att_req.date,
+        defaults={
+            'clock_in': att_req.requested_time if att_req.request_type not in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval'] else timezone.now().time(),
+            'clock_out': att_req.requested_time if att_req.request_type in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval'] else None,
+            'status': 'Present'
+        }
+    )
+    if not created:
+        if att_req.request_type in ['Late Arrival', 'Clock In', 'Permission']:
+            att_record.clock_in = att_req.requested_time
+            att_record.status = 'Present'
+        elif att_req.request_type in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval']:
+            att_record.clock_out = att_req.requested_time
+    else:
+        if att_req.request_type in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval']:
+            att_record.clock_out = att_req.requested_time
+
+    # Calculate shift-specific overtime if shift is assigned
+    if emp_shift and att_record.clock_in and att_record.clock_out:
+        from datetime import timedelta
+        s_start = emp_shift.start_time
+        s_end = emp_shift.end_time
+        dt_s_start = datetime.combine(att_req.date, s_start)
+        dt_s_end = datetime.combine(att_req.date, s_end)
+        if s_end < s_start:
+            dt_s_end += timedelta(days=1)
+        shift_duration = (dt_s_end - dt_s_start).total_seconds() / 60
+        
+        dt_cin = datetime.combine(att_req.date, att_record.clock_in)
+        dt_cout = datetime.combine(att_req.date, att_record.clock_out)
+        if dt_cout < dt_cin:
+            if (dt_cin - dt_cout).total_seconds() > 4 * 3600:
+                dt_cout += timedelta(days=1)
+            else:
+                dt_cout = dt_cin
+        worked_duration = (dt_cout - dt_cin).total_seconds() / 60
+        if worked_duration > shift_duration:
+            att_record.overtime_minutes = int(worked_duration - shift_duration)
+
+    att_record.save()
+        
+    # Sync with Face Attendance SQLite database if present
+    try:
+        face_db_path = os.path.join(settings.BASE_DIR.parent, 'face', 'attendance.db')
+        if os.path.exists(face_db_path):
+            import sqlite3
+            conn = sqlite3.connect(face_db_path)
+            cur = conn.cursor()
+            u_name = att_req.employee.user.username
+            full_name = f"{att_req.employee.user.first_name} {att_req.employee.user.last_name}".strip()
+            date_str = att_req.date.strftime('%Y-%m-%d')
+            time_str = att_req.requested_time.strftime('%H:%M:%S')
+            
+            # Match record by username or full name case-insensitively
+            cur.execute("""
+                SELECT id, login_time FROM attendance 
+                WHERE (LOWER(user_name) = LOWER(?) OR LOWER(user_name) = LOWER(?) OR LOWER(user_name) LIKE LOWER(?)) 
+                AND date = ? 
+                ORDER BY id DESC LIMIT 1
+            """, (u_name, full_name, f"%{u_name}%", date_str))
+            row = cur.fetchone()
+            
+            if not row:
+                disp_name = full_name if full_name else u_name
+                if att_req.request_type in ['Late Arrival', 'Clock In', 'Permission']:
+                    cur.execute("INSERT INTO attendance (user_name, date, login_time) VALUES (?, ?, ?)", (disp_name, date_str, time_str))
+                else:
+                    cur.execute("INSERT INTO attendance (user_name, date, login_time, logout_time) VALUES (?, ?, ?, ?)", (disp_name, date_str, time_str, time_str))
+            else:
+                rec_id, ex_login = row
+                if att_req.request_type in ['Late Arrival', 'Clock In', 'Permission']:
+                    cur.execute("UPDATE attendance SET login_time = ? WHERE id = ?", (time_str, rec_id))
+                else:
+                    # Calculate duration for SQLite
+                    tot_str = None
+                    if ex_login:
+                        try:
+                            t1 = datetime.strptime(ex_login[:8], "%H:%M:%S")
+                            t2 = datetime.strptime(time_str[:8], "%H:%M:%S")
+                            diff_sec = max(0, int((t2 - t1).total_seconds()))
+                            tot_str = f"{diff_sec // 3600} hrs {(diff_sec % 3600) // 60} min"
+                        except Exception:
+                            pass
+                    cur.execute("UPDATE attendance SET logout_time = ?, total_hours = ? WHERE id = ?", (time_str, tot_str, rec_id))
+                    
+            # Mark pending_actions as approved
+            cur.execute("UPDATE pending_actions SET status = 'approved' WHERE token = ?", (token,))
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        print(f"[Face SQLite Sync Error] {e}")
+        
+    log_activity(getattr(request, 'user', None), f"Approved {att_req.request_type} for {att_req.employee.user.username}", "Attendance Approval", request)
+    
+    return render(request, 'employees/approval_confirmation.html', {
+        'status': 'approved',
+        'att_req': att_req,
+        'title': 'Attendance Approved'
+    })
+
+
+def attendance_reject_view(request, token):
+    """
+    Action from Admin Email to Reject late arrival / attendance request.
+    """
+    att_req = AttendanceRequest.objects.filter(token=token).first()
+    if not att_req:
+        try:
+            face_db_path = os.path.join(settings.BASE_DIR.parent, 'face', 'attendance.db')
+            if os.path.exists(face_db_path):
+                import sqlite3
+                conn = sqlite3.connect(face_db_path)
+                cur = conn.cursor()
+                cur.execute("UPDATE pending_actions SET status = 'rejected' WHERE token = ?", (token,))
+                conn.commit()
+                conn.close()
+        except Exception:
+            pass
+        return render(request, 'employees/approval_confirmation.html', {
+            'status': 'rejected',
+            'title': 'Request Rejected',
+            'message': 'Attendance permission request has been rejected.'
+        })
+        
+    if att_req.status != 'Pending':
+        return render(request, 'employees/approval_confirmation.html', {
+            'status': 'already_done',
+            'att_req': att_req,
+            'message': f"This request was already {att_req.status.lower()}."
+        })
+        
+    att_req.status = 'Rejected'
+    att_req.reviewed_at = timezone.now()
+    if request.user.is_authenticated and request.user.is_staff:
+        att_req.reviewed_by = request.user
+    att_req.save()
+    
+    log_activity(getattr(request, 'user', None), f"Rejected {att_req.request_type} for {att_req.employee.user.username}", "Attendance Approval", request)
+    
+    return render(request, 'employees/approval_confirmation.html', {
+        'status': 'rejected',
+        'att_req': att_req,
+        'title': 'Request Rejected'
+    })
+
+
+@admin_only
+def admin_attendance_request_action(request, req_id, action):
+    """
+    Direct in-dashboard approve/reject action for Admin with instant feedback.
+    """
+    att_req = get_object_or_404(AttendanceRequest, id=req_id)
+    emp_user = att_req.employee.user
+    emp_name = emp_user.get_full_name() or emp_user.username
+
+    if action == 'approve':
+        att_req.status = 'Approved'
+        att_req.reviewed_at = timezone.now()
+        att_req.reviewed_by = request.user
+        att_req.save()
+
+        # Update official attendance record
+        emp_shift = att_req.employee.shift
+        att_record, created = Attendance.objects.get_or_create(
+            employee=att_req.employee,
+            date=att_req.date,
+            defaults={
+                'clock_in': att_req.requested_time if att_req.request_type not in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval'] else timezone.now().time(),
+                'clock_out': att_req.requested_time if att_req.request_type in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval'] else None,
+                'status': 'Present'
+            }
+        )
+        if not created:
+            if att_req.request_type in ['Late Arrival', 'Clock In', 'Permission']:
+                if not att_record.clock_in:
+                    att_record.clock_in = att_req.requested_time
+                att_record.status = 'Present'
+            elif att_req.request_type in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval']:
+                att_record.clock_out = att_req.requested_time
+                att_record.status = 'Present'
+        else:
+            if att_req.request_type in ['Early Departure', 'Clock Out', 'Emergency Exit', 'Logout Approval']:
+                att_record.clock_out = att_req.requested_time
+
+        # Calculate shift overtime
+        if emp_shift and att_record.clock_in and att_record.clock_out:
+            from datetime import timedelta
+            s_start = emp_shift.start_time
+            s_end = emp_shift.end_time
+            dt_s_start = datetime.combine(att_req.date, s_start)
+            dt_s_end = datetime.combine(att_req.date, s_end)
+            if s_end < s_start:
+                dt_s_end += timedelta(days=1)
+            shift_duration = (dt_s_end - dt_s_start).total_seconds() / 60
+            
+            dt_cin = datetime.combine(att_req.date, att_record.clock_in)
+            dt_cout = datetime.combine(att_req.date, att_record.clock_out)
+            if dt_cout < dt_cin:
+                if (dt_cin - dt_cout).total_seconds() > 4 * 3600:
+                    dt_cout += timedelta(days=1)
+                else:
+                    dt_cout = dt_cin
+            worked_duration = (dt_cout - dt_cin).total_seconds() / 60
+            if worked_duration > shift_duration:
+                att_record.overtime_minutes = int(worked_duration - shift_duration)
+
+        att_record.save()
+
+        # Sync to Face Attendance SQLite DB
+        try:
+            face_db_path = os.path.join(settings.BASE_DIR.parent, 'face', 'attendance.db')
+            if os.path.exists(face_db_path):
+                import sqlite3
+                conn = sqlite3.connect(face_db_path)
+                cur = conn.cursor()
+                u_name = att_req.employee.user.username
+                full_name = f"{att_req.employee.user.first_name} {att_req.employee.user.last_name}".strip()
+                date_str = att_req.date.strftime('%Y-%m-%d')
+                time_str = att_req.requested_time.strftime('%H:%M:%S')
+
+                cur.execute("""
+                    SELECT id, login_time FROM attendance 
+                    WHERE (LOWER(user_name) = LOWER(?) OR LOWER(user_name) = LOWER(?) OR LOWER(user_name) LIKE LOWER(?)) 
+                    AND date = ? 
+                    ORDER BY id DESC LIMIT 1
+                """, (u_name, full_name, f"%{u_name}%", date_str))
+                row = cur.fetchone()
+
+                if not row:
+                    disp_name = full_name if full_name else u_name
+                    if att_req.request_type in ['Late Arrival', 'Clock In', 'Permission']:
+                        cur.execute("INSERT INTO attendance (user_name, date, login_time) VALUES (?, ?, ?)", (disp_name, date_str, time_str))
+                    else:
+                        cur.execute("INSERT INTO attendance (user_name, date, login_time, logout_time) VALUES (?, ?, ?, ?)", (disp_name, date_str, time_str, time_str))
+                else:
+                    rec_id, ex_login = row
+                    if att_req.request_type in ['Late Arrival', 'Clock In', 'Permission']:
+                        cur.execute("UPDATE attendance SET login_time = ? WHERE id = ?", (time_str, rec_id))
+                    else:
+                        tot_str = None
+                        if ex_login:
+                            try:
+                                t1 = datetime.strptime(ex_login[:8], "%H:%M:%S")
+                                t2 = datetime.strptime(time_str[:8], "%H:%M:%S")
+                                diff_sec = max(0, int((t2 - t1).total_seconds()))
+                                tot_str = f"{diff_sec // 3600} hrs {(diff_sec % 3600) // 60} min"
+                            except Exception:
+                                pass
+                        cur.execute("UPDATE attendance SET logout_time = ?, total_hours = ? WHERE id = ?", (time_str, tot_str, rec_id))
+
+                cur.execute("UPDATE pending_actions SET status = 'approved' WHERE token = ?", (att_req.token,))
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            print(f"[Face SQLite Sync Error] {e}")
+
+        log_activity(request.user, f"Approved {att_req.request_type} for {emp_name}", "Attendance Approval", request)
+        messages.success(request, f"✅ Approved {att_req.request_type} request for {emp_name} successfully.")
+    
+    elif action == 'reject':
+        att_req.status = 'Rejected'
+        att_req.reviewed_at = timezone.now()
+        att_req.reviewed_by = request.user
+        att_req.save()
+
+        # Sync to Face SQLite DB
+        try:
+            face_db_path = os.path.join(settings.BASE_DIR.parent, 'face', 'attendance.db')
+            if os.path.exists(face_db_path):
+                import sqlite3
+                conn = sqlite3.connect(face_db_path)
+                cur = conn.cursor()
+                cur.execute("UPDATE pending_actions SET status = 'rejected' WHERE token = ?", (att_req.token,))
+                conn.commit()
+                conn.close()
+        except Exception:
+            pass
+
+        log_activity(request.user, f"Rejected {att_req.request_type} for {emp_name}", "Attendance Approval", request)
+        messages.warning(request, f"❌ Rejected {att_req.request_type} request for {emp_name}.")
+
+    next_url = request.GET.get('next') or request.META.get('HTTP_REFERER')
+    if next_url and ('attendance' in next_url or 'admin-dashboard' in next_url):
+        return redirect(next_url)
+    return redirect('/admin-dashboard/?tab=attendance')
 

@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from datetime import date
+import uuid
 
 class Department(models.Model):
     name = models.CharField(max_length=100)
@@ -98,8 +99,8 @@ class LeaveRequest(models.Model):
 
 class Attendance(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='attendance_records')
-    date = models.DateField(auto_now_add=True)
-    clock_in = models.TimeField(auto_now_add=True)
+    date = models.DateField(default=timezone.now)
+    clock_in = models.TimeField(default=timezone.now)
     clock_out = models.TimeField(blank=True, null=True)
     late_minutes = models.IntegerField(default=0)
     overtime_minutes = models.IntegerField(default=0)
@@ -114,19 +115,104 @@ class Attendance(models.Model):
 
     @property
     def total_hours(self):
-        if not self.clock_out:
+        if not self.clock_in:
             return None
         import datetime
         dt_in = datetime.datetime.combine(self.date, self.clock_in)
-        dt_out = datetime.datetime.combine(self.date, self.clock_out)
-        if dt_out < dt_in:
-            dt_out += datetime.timedelta(days=1)
-        diff = dt_out - dt_in
-        hours = diff.total_seconds() / 3600.0
-        return round(hours, 2)
+        if self.clock_out:
+            dt_out = datetime.datetime.combine(self.date, self.clock_out)
+            # Only treat as next day if dt_out is significantly earlier (night shift > 4 hours earlier)
+            if dt_out < dt_in:
+                if (dt_in - dt_out).total_seconds() > 4 * 3600:
+                    dt_out += datetime.timedelta(days=1)
+                else:
+                    dt_out = dt_in
+            diff = dt_out - dt_in
+            hours = max(0.0, diff.total_seconds() / 3600.0)
+            return round(hours, 2)
+        elif self.date == datetime.date.today():
+            now = datetime.datetime.now()
+            if now > dt_in:
+                diff = now - dt_in
+                return round(diff.total_seconds() / 3600.0, 2)
+        return None
+
+    @property
+    def duration_display(self):
+        if not self.clock_in:
+            return "-"
+        import datetime
+        dt_in = datetime.datetime.combine(self.date, self.clock_in)
+        if self.clock_out:
+            dt_out = datetime.datetime.combine(self.date, self.clock_out)
+            if dt_out < dt_in:
+                if (dt_in - dt_out).total_seconds() > 4 * 3600:
+                    dt_out += datetime.timedelta(days=1)
+                else:
+                    dt_out = dt_in
+            total_sec = max(0, int((dt_out - dt_in).total_seconds()))
+            h = total_sec // 3600
+            m = (total_sec % 3600) // 60
+            if h > 0 and m > 0:
+                return f"{h}h {m}m"
+            elif h > 0:
+                return f"{h} hrs"
+            else:
+                return f"{m} mins"
+        else:
+            if self.date == datetime.date.today():
+                now = datetime.datetime.now()
+                if now > dt_in:
+                    total_sec = max(0, int((now - dt_in).total_seconds()))
+                    h = total_sec // 3600
+                    m = (total_sec % 3600) // 60
+                    if h > 0 and m > 0:
+                        return f"{h}h {m}m (Live)"
+                    elif h > 0:
+                        return f"{h} hrs (Live)"
+                    else:
+                        return f"{m} mins (Live)"
+            return "In progress"
+
+    @property
+    def late_arrival_request(self):
+        return self.employee.attendance_requests.filter(date=self.date, request_type__in=['Late Arrival', 'Permission']).order_by('-id').first()
+
+    @property
+    def early_logout_request(self):
+        return self.employee.attendance_requests.filter(date=self.date, request_type__in=['Early Departure', 'Clock Out', 'Emergency Exit']).order_by('-id').first()
 
     def __str__(self):
         return f"{self.employee.user.username} on {self.date}"
+
+class AttendanceRequest(models.Model):
+    REQUEST_TYPES = [
+        ('Late Arrival', 'Late Arrival Permission'),
+        ('Early Departure', 'Early Departure Permission'),
+        ('Clock In', 'Clock In Approval'),
+        ('Clock Out', 'Clock Out Approval'),
+        ('Permission', 'General Permission'),
+        ('Emergency Exit', 'Emergency Exit Permission'),
+    ]
+    STATUS_CHOICES = [
+        ('Pending', 'Pending Admin Approval'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='attendance_requests')
+    date = models.DateField(default=timezone.now)
+    request_type = models.CharField(max_length=50, choices=REQUEST_TYPES, default='Late Arrival')
+    requested_time = models.TimeField(help_text="Expected / requested login or logout time")
+    reason = models.TextField(help_text="Reason for late arrival or permission")
+    token = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_attendance_requests')
+    admin_notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.employee.user.username} - {self.request_type} on {self.date} ({self.status})"
 
 class Payslip(models.Model):
     STATUS_CHOICES = [

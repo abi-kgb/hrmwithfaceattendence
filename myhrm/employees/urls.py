@@ -4,6 +4,8 @@ from . import views_api
 
 urlpatterns = [
     path('api/attendance/webhook/', views_api.attendance_webhook_api, name='attendance_webhook_api'),
+    path('api/attendance/request-permission/', views_api.request_permission_api, name='request_permission_api'),
+    path('api/attendance/pending-requests/', views_api.get_pending_requests_api, name='get_pending_requests_api'),
     path('api/employees/', views_api.get_employees_api, name='get_employees_api'),
     path('api/attendance/logs/', views_api.get_attendance_logs_api, name='get_attendance_logs_api'),
     path('', views.home_redirect, name='home'),
@@ -117,6 +119,12 @@ urlpatterns = [
     # Goals Status & Delete
     path('goals/<int:goal_id>/update-status/', views.update_goal_status, name='update_goal_status'),
     path('goals/<int:goal_id>/delete/', views.delete_goal, name='delete_goal'),
+
+    # Attendance Permission & Email Approvals
+    path('dashboard/apply-attendance-permission/', views.apply_attendance_permission, name='apply_attendance_permission'),
+    path('attendance/approve/<str:token>/', views.attendance_approve_view, name='attendance_approve'),
+    path('attendance/reject/<str:token>/', views.attendance_reject_view, name='attendance_reject'),
+    path('admin-dashboard/attendance-requests/<int:req_id>/<str:action>/', views.admin_attendance_request_action, name='admin_attendance_request_action'),
 
     # PWA Routes
     path('manifest.json', views.manifest_view, name='manifest'),

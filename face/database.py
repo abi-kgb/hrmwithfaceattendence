@@ -50,32 +50,14 @@ def trigger_hrm_webhook(user_name, action_type, time_str=None, date_str=None):
 
     threading.Thread(target=send_request, daemon=True).start()
 
-def send_admin_email(subject, body, recipient="abhinaya.kgb@gmail.com"):
-    """Sends an admin notification email for logout requests/approvals."""
-    def send_mail():
-        load_dotenv(override=True)
-        smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
-        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-        smtp_user = os.environ.get("SMTP_USER", "")
-        smtp_pass = os.environ.get("SMTP_PASS", "")
-        if not smtp_user or not smtp_pass:
-            return
-        try:
-            import smtplib
-            from email.mime.text import MIMEText
-            msg = MIMEText(body)
-            msg["Subject"] = subject
-            msg["From"] = smtp_user
-            msg["To"] = recipient
-            server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-            server.quit()
-        except Exception as e:
-            print(f"[Email Error] {e}")
+def send_admin_email(subject, body, recipient=None, html_body=None):
+    """Email concept removed - no-op function."""
+    pass
 
-    threading.Thread(target=send_mail, daemon=True).start()
+def send_approval_action_email(user_name, action_type, time_str, date_str, token, base_url="http://127.0.0.1:8000", recipient=None):
+    """Email concept removed - no-op function."""
+    pass
+
 
 def get_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -186,13 +168,55 @@ def is_logged_in(user_name):
     """Check if the user is currently logged in (has a login without a logout today)."""
     conn = get_connection()
     today = datetime.now().strftime("%Y-%m-%d")
+    cursor = conn.cursor()
     cursor.execute('''
         SELECT COUNT(*) FROM attendance 
-        WHERE user_name = ? AND date = ?
+        WHERE LOWER(user_name) = LOWER(?) AND date = ? AND (logout_time IS NULL OR logout_time = '' OR logout_time = '-')
     ''', (user_name, today))
     row = cursor.fetchone()
     conn.close()
     return row[0] if row else 0
+
+def get_user_today_attendance(user_name):
+    """Returns today's latest attendance record dict or None."""
+    conn = get_connection()
+    today = datetime.now().strftime("%Y-%m-%d")
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, login_time, logout_time, total_hours FROM attendance 
+        WHERE LOWER(user_name) = LOWER(?) AND date = ?
+        ORDER BY id DESC LIMIT 1
+    ''', (user_name, today))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {
+            "id": row[0],
+            "login_time": row[1],
+            "logout_time": row[2],
+            "total_hours": row[3]
+        }
+    return None
+
+def has_pending_action(user_name, today_date=None, action_type=None):
+    """Check if the user has an unapproved pending logout/permission request."""
+    conn = get_connection()
+    today = today_date or datetime.now().strftime("%Y-%m-%d")
+    cursor = conn.cursor()
+    if action_type:
+        cursor.execute('''
+            SELECT token FROM pending_actions 
+            WHERE LOWER(user_name) = LOWER(?) AND date = ? AND LOWER(action_type) = LOWER(?) AND status = 'pending'
+        ''', (user_name, today, action_type))
+    else:
+        cursor.execute('''
+            SELECT token FROM pending_actions 
+            WHERE LOWER(user_name) = LOWER(?) AND date = ? AND status = 'pending'
+        ''', (user_name, today))
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None
+
 
 def get_login_time(user_name):
     conn = get_connection()
@@ -290,15 +314,7 @@ def approve_pending_login(token):
     conn.close()
     return True, f"Attendance approved for {user_name} at {time_str}"
 
-def has_pending_action(user_name, today_date, action_type):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT token FROM pending_actions WHERE user_name = ? AND date = ? AND action_type = ? AND status = 'pending'
-    ''', (user_name, today_date, action_type))
-    row = cursor.fetchone()
-    conn.close()
-    return row is not None
+# (Duplicate has_pending_action merged above)
 
 def create_pending_action(user_name, today_date, time_str, action_type):
     conn = get_connection()

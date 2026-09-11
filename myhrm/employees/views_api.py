@@ -15,6 +15,36 @@ def parse_time_string(time_str):
             pass
     return datetime.now().time()
 
+def resolve_employee(user_name=None, emp_id=None):
+    if emp_id:
+        emp = Employee.objects.filter(employee_id_code=emp_id).first()
+        if emp:
+            return emp
+    if not user_name:
+        return None
+    
+    clean = str(user_name).strip()
+    # 1. Exact match username
+    emp = Employee.objects.filter(user__username__iexact=clean).first()
+    if emp:
+        return emp
+    
+    # 2. First name + last name match e.g. "Abi B"
+    for e in Employee.objects.select_related('user').all():
+        full = f"{e.user.first_name} {e.user.last_name}".strip()
+        if full.lower() == clean.lower() or e.user.username.lower() == clean.lower():
+            return e
+            
+    # 3. Match by splitting first word (e.g. "Abi" from "Abi B")
+    first_word = clean.split()[0].split('_')[0].strip()
+    emp = Employee.objects.filter(
+        Q(user__username__iexact=first_word) |
+        Q(user__first_name__iexact=first_word) |
+        Q(user__username__icontains=first_word) |
+        Q(user__first_name__icontains=first_word)
+    ).first()
+    return emp
+
 @csrf_exempt
 def attendance_webhook_api(request):
     """
@@ -46,18 +76,7 @@ def attendance_webhook_api(request):
             pass
             
     clock_time = parse_time_string(time_str)
-
-    employee = None
-    if emp_id:
-        employee = Employee.objects.filter(employee_id_code=emp_id).first()
-        
-    if not employee and user_name:
-        clean_name = user_name.split('_')[0].strip()
-        employee = Employee.objects.filter(
-            Q(user__username__iexact=clean_name) |
-            Q(user__first_name__iexact=clean_name) |
-            Q(user__username__icontains=clean_name)
-        ).first()
+    employee = resolve_employee(user_name=user_name, emp_id=emp_id)
         
     if not employee:
         return JsonResponse({
@@ -65,6 +84,15 @@ def attendance_webhook_api(request):
             "message": f"Employee not found in MyHRM database for emp_id='{emp_id}', name='{user_name}'"
         }, status=404)
         
+    from .models import AttendanceRequest
+
+    late_mins = 0
+    if employee.shift and clock_time and action == 'login':
+        dt_in = datetime.combine(today_date, clock_time)
+        dt_shift_start = datetime.combine(today_date, employee.shift.start_time)
+        if dt_in > dt_shift_start:
+            late_mins = max(0, int((dt_in - dt_shift_start).total_seconds() / 60))
+
     attendance_rec = Attendance.objects.filter(employee=employee, date=today_date).first()
     if not attendance_rec:
         attendance_rec = Attendance.objects.create(
@@ -72,21 +100,88 @@ def attendance_webhook_api(request):
             date=today_date,
             clock_in=clock_time if action == 'login' else None,
             clock_out=clock_time if action == 'logout' else None,
+            late_minutes=late_mins,
             status='Present'
         )
         message = f"Created attendance record for {employee} at {clock_time.strftime('%H:%M:%S')}"
     else:
         if action == 'login':
-            attendance_rec.clock_in = clock_time
+            # If not yet clocked in, set clock_in. If already clocked in, preserve original clock-in time and clear clock_out so user is actively working.
+            if not attendance_rec.clock_in:
+                attendance_rec.clock_in = clock_time
+            attendance_rec.clock_out = None
             attendance_rec.status = 'Present'
+            if late_mins > 0 and (attendance_rec.late_minutes == 0 or attendance_rec.late_minutes is None):
+                attendance_rec.late_minutes = late_mins
             attendance_rec.save()
             message = f"Clock-in updated for {employee} at {clock_time.strftime('%H:%M:%S')}"
         elif action == 'logout':
             attendance_rec.clock_out = clock_time
+            if employee.shift and attendance_rec.clock_in:
+                from datetime import timedelta
+                shift_start = employee.shift.start_time
+                shift_end = employee.shift.end_time
+                dt_s_start = datetime.combine(today_date, shift_start)
+                dt_s_end = datetime.combine(today_date, shift_end)
+                if shift_end < shift_start:
+                    dt_s_end += timedelta(days=1)
+                shift_duration = (dt_s_end - dt_s_start).total_seconds() / 60
+                
+                dt_cin = datetime.combine(today_date, attendance_rec.clock_in)
+                dt_cout = datetime.combine(today_date, clock_time)
+                if dt_cout < dt_cin:
+                    if (dt_cin - dt_cout).total_seconds() > 4 * 3600:
+                        dt_cout += timedelta(days=1)
+                    else:
+                        dt_cout = dt_cin
+                worked_duration = (dt_cout - dt_cin).total_seconds() / 60
+                if worked_duration > shift_duration:
+                    attendance_rec.overtime_minutes = int(worked_duration - shift_duration)
             attendance_rec.save()
             message = f"Clock-out updated for {employee} at {clock_time.strftime('%H:%M:%S')}"
         else:
             message = f"Attendance record updated for {employee}"
+
+    # Auto-create or link AttendanceRequest for Late Arrival
+    if action == 'login' and late_mins > 0:
+        existing_late_req = AttendanceRequest.objects.filter(
+            employee=employee,
+            date=today_date,
+            request_type__in=['Late Arrival', 'Permission']
+        ).first()
+        if not existing_late_req:
+            shift_start_str = employee.shift.start_time.strftime('%H:%M') if employee.shift else 'Shift Start'
+            AttendanceRequest.objects.create(
+                employee=employee,
+                date=today_date,
+                request_type='Late Arrival',
+                requested_time=clock_time,
+                reason=f"Late arrival by {late_mins} minutes via Face Attendance scan (Shift Start: {shift_start_str}, Clock In: {clock_time.strftime('%H:%M')})",
+                status='Pending'
+            )
+
+    # Auto-create or link AttendanceRequest for Early Logout
+    if action == 'logout' and employee.shift and clock_time:
+        shift_end = employee.shift.end_time
+        dt_cout = datetime.combine(today_date, clock_time)
+        dt_s_end = datetime.combine(today_date, shift_end)
+        if dt_cout < dt_s_end:
+            early_mins = max(0, int((dt_s_end - dt_cout).total_seconds() / 60))
+            if early_mins > 5:
+                existing_early_req = AttendanceRequest.objects.filter(
+                    employee=employee,
+                    date=today_date,
+                    request_type__in=['Early Departure', 'Clock Out', 'Emergency Exit']
+                ).first()
+                if not existing_early_req:
+                    AttendanceRequest.objects.create(
+                        employee=employee,
+                        date=today_date,
+                        request_type='Early Departure',
+                        requested_time=clock_time,
+                        reason=f"Early logout by {early_mins} minutes via Face Attendance scan (Shift End: {shift_end.strftime('%H:%M')}, Clock Out: {clock_time.strftime('%H:%M')})",
+                        status='Pending'
+                    )
 
     attendance_rec.refresh_from_db()
 
@@ -135,7 +230,8 @@ def get_attendance_logs_api(request):
     for att in records:
         emp = att.employee
         user = emp.user if emp else None
-        name = f"{user.first_name} {user.last_name}".strip() if user else (user.username if user else "Unknown")
+        full_name = f"{user.first_name} {user.last_name}".strip() if user else ""
+        name = full_name or (user.username if user else "Unknown")
         emp_code = emp.employee_id_code if emp else "EMP"
         role = emp.role if emp else "Employee"
         
@@ -170,3 +266,93 @@ def get_attendance_logs_api(request):
         })
     return JsonResponse({"success": True, "logs": logs})
 
+@csrf_exempt
+def request_permission_api(request):
+    """
+    API to submit Late Arrival / Early Departure permission requests from Face App.
+    Sends interactive Approve & Disapprove email to the Admin (abhinaya.kgb@gmail.com).
+    """
+    if request.method != 'POST':
+        return JsonResponse({"success": False, "message": "Only POST allowed"}, status=405)
+        
+    try:
+        data = json.loads(request.body)
+    except Exception as e:
+        return JsonResponse({"success": False, "message": f"Invalid JSON: {str(e)}"}, status=400)
+        
+    user_name = data.get('user_name', '').strip()
+    action = data.get('action', 'Early Departure').strip()
+    reason = data.get('reason', 'Submitted via Face Attendance System').strip()
+    time_str = data.get('time')
+    date_str = data.get('date')
+    
+    if not user_name:
+        return JsonResponse({"success": False, "message": "user_name is required"}, status=400)
+        
+    today_date = date.today()
+    if date_str:
+        try:
+            today_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except Exception:
+            pass
+            
+    clock_time = parse_time_string(time_str)
+    
+    # Resolve employee
+    employee = resolve_employee(user_name=user_name)
+    
+    if not employee:
+        return JsonResponse({"success": False, "message": f"Employee '{user_name}' not found in HRM"}, status=404)
+        
+    from .models import AttendanceRequest
+    from .email_service import send_attendance_approval_email
+    
+    req_type = 'Early Departure' if action in ['logout', 'Early Departure', 'Clock Out'] else 'Late Arrival'
+    
+    # Check if existing pending request exists
+    att_req = AttendanceRequest.objects.filter(
+        employee=employee,
+        date=today_date,
+        request_type=req_type,
+        status='Pending'
+    ).first()
+    
+    if not att_req:
+        att_req = AttendanceRequest.objects.create(
+            employee=employee,
+            request_type=req_type,
+            date=today_date,
+            requested_time=clock_time,
+            reason=reason,
+            status='Pending'
+        )
+    else:
+        att_req.requested_time = clock_time
+        att_req.reason = reason
+        att_req.save()
+        
+    return JsonResponse({
+        "success": True,
+        "token": att_req.token,
+        "message": f"Permission request for {user_name} sent to HRM Admin Dashboard for approval."
+    })
+
+@csrf_exempt
+def get_pending_requests_api(request):
+    """
+    API to fetch all pending attendance & logout permission requests.
+    """
+    from .models import AttendanceRequest
+    pending_list = []
+    for req in AttendanceRequest.objects.filter(status='Pending').order_by('-created_at'):
+        pending_list.append({
+            "id": req.id,
+            "token": str(req.token),
+            "user_name": f"{req.employee.user.first_name} {req.employee.user.last_name}".strip() or req.employee.user.username,
+            "date": str(req.date),
+            "requested_time": req.requested_time.strftime("%H:%M") if req.requested_time else "",
+            "request_type": req.request_type,
+            "reason": req.reason or "Logout request",
+            "status": req.status
+        })
+    return JsonResponse({"success": True, "requests": pending_list})
